@@ -1,0 +1,110 @@
+import { X, ChevronRight, Image as ImageIcon, Bell, Shield, Users, Ban, Flag, Archive } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { useChatStore } from '@/store/chatStore';
+import { cn } from '@/lib/utils';
+
+export function RightSidebar() {
+    const { activeChatId, chats, setRightSidebarOpen, toggleArchive } = useChatStore();
+    const chat = chats.find(c => c.id === activeChatId);
+
+    if (!chat) return null;
+
+    return (
+        <div className="w-[320px] h-full bg-card border-l border-border flex flex-col animate-in slide-in-from-right duration-300 z-30">
+            {/* Header */}
+            <div className="h-[var(--header-height)] flex items-center justify-between px-6 glass-panel shrink-0">
+                <h2 className="text-sm font-bold text-foreground tracking-tight">Contact Info</h2>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                    onClick={() => setRightSidebarOpen(false)}
+                >
+                    <X className="h-4 w-4" />
+                </Button>
+            </div>
+
+            <ScrollArea className="flex-1">
+                <div className="p-6 space-y-8">
+                    {/* Profile Section */}
+                    <div className="flex flex-col items-center text-center">
+                        <Avatar className="h-20 w-20 mb-4 border border-border premium-shadow">
+                            <AvatarImage src={chat.avatar_url} />
+                            <AvatarFallback className="text-xl font-bold bg-muted text-muted-foreground">
+                                {chat.name?.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">{chat.name}</h3>
+                        <p className="text-[10px] text-green-500/80 font-bold uppercase tracking-[0.2em] leading-none">Active</p>
+                    </div>
+
+                    {/* Media, Files & Links */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Media & Files</h4>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 px-1">
+                            {[1, 2, 3].map((_, i) => (
+                                <div key={i} className="aspect-square rounded-xl bg-muted border border-border flex items-center justify-center group overflow-hidden cursor-pointer hover:border-primary/50 transition-all">
+                                    <ImageIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <Separator className="bg-border" />
+
+                    {/* Options List */}
+                    <div className="space-y-1">
+                        {[
+                            { icon: Bell, label: 'Mute Notifications', color: 'text-muted-foreground', action: () => { } },
+                            {
+                                icon: Archive,
+                                label: chat.is_archived ? 'Unarchive Chat' : 'Archive Chat',
+                                color: 'text-muted-foreground',
+                                action: () => activeChatId && toggleArchive(activeChatId)
+                            },
+                            { icon: Shield, label: 'Privacy & Permissions', color: 'text-muted-foreground', action: () => { } },
+                            { icon: Users, label: 'Shared Workspaces', color: 'text-muted-foreground', action: () => { } },
+                        ].map((item, i) => (
+                            <button
+                                key={i}
+                                onClick={item.action}
+                                className="flex items-center justify-between w-full p-2.5 rounded-xl hover:bg-muted/50 transition-colors group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm">
+                                        <item.icon className={cn("h-4 w-4", item.color)} />
+                                    </div>
+                                    <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</span>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
+                            </button>
+                        ))}
+                    </div>
+
+                    <Separator className="bg-border" />
+
+                    {/* Danger Zone */}
+                    <div className="space-y-1 pb-6">
+                        {[
+                            { icon: Ban, label: 'Block User', color: 'text-destructive' },
+                            { icon: Flag, label: 'Report User', color: 'text-destructive' },
+                        ].map((item, i) => (
+                            <button key={i} className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-destructive/10 transition-colors group">
+                                <div className="h-8 w-8 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-center">
+                                    <item.icon className="h-4 w-4 text-destructive" />
+                                </div>
+                                <span className="text-sm font-semibold text-destructive">{item.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </ScrollArea>
+        </div>
+    );
+}

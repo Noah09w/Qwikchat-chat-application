@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================
+   QwikChat Professional Design System
+   ========================================== */
+
+@layer base {
+  :root {
+    /* Professional Palette - Light Mode: #F0F5F9, #C9D6DF, #52616B, #1E2022 */
+    --background: 207 33% 96%;
+    /* #F0F5F9 (Lightest) */
+    --foreground: 210 6% 13%;
+    /* #1E2022 (Darkest) */
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 6% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 6% 13%;
+
+    --primary: 204 13% 37%;
+    /* #52616B */
+    --primary-foreground: 207 33% 96%;
+
+    --secondary: 205 26% 83%;
+    /* #C9D6DF */
+    --secondary-foreground: 210 6% 13%;
+
+    --muted: 205 20% 90%;
+    --muted-foreground: 204 13% 45%;
+
+    --accent: 205 26% 83%;
+    /* #C9D6DF */
+    --accent-foreground: 210 6% 13%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 205 26% 75%;
+    /* Based on #C9D6DF */
+    --input: 205 20% 94%;
+    --ring: 204 13% 37%;
+
+    --radius: 0.6rem;
+    --sidebar-width: 300px;
+    --header-height: 72px;
+
+    /* Semantic Status */
+    --online: 142.1 70.6% 45.3%;
+    --away: 47.9 95.8% 51.8%;
+    --busy: 0 84.2% 60.2%;
+  }
+
+  .dark {
+    /* Professional Palette - Dark Mode: #1E2022, #52616B, #C9D6DF, #F0F5F9 */
+    --background: 210 6% 13%;
+    /* #1E2022 (Darkest) */
+    --foreground: 207 33% 96%;
+    /* #F0F5F9 (Lightest) */
+
+    --card: 210 6% 16%;
+    --card-foreground: 207 33% 96%;
+
+    --popover: 210 6% 14%;
+    --popover-foreground: 207 33% 96%;
+
+    --primary: 204 13% 37%;
+    /* #52616B */
+    --primary-foreground: 207 33% 96%;
+
+    --secondary: 204 13% 25%;
+    /* Darker #52616B variant */
+    --secondary-foreground: 207 33% 96%;
+
+    --muted: 210 6% 20%;
+    --muted-foreground: 205 15% 70%;
+
+    --accent: 210 6% 22%;
+    --accent-foreground: 207 33% 96%;
+
+    --border: 204 13% 25%;
+    --input: 210 6% 18%;
+    --ring: 204 13% 37%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border selection:bg-primary/30 selection:text-foreground;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+    background-image: none;
+  }
+}
+
+@layer utilities {
+
+  /* Professional Surfaces */
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-md border border-border/50 shadow-xl;
+  }
+
+  .glass-panel {
+    @apply bg-background/80 backdrop-blur-lg border-b border-border/10;
+  }
+
+  .border-subtle {
+    @apply border border-border/15;
+  }
+
+  /* Structural Hover Effects */
+  .hover-scale {
+    @apply transition-all duration-300 active:scale-[0.98] hover:translate-y-[-2px] hover:shadow-xl;
+  }
+
+  .premium-shadow {
+    @apply shadow-2xl ring-1 ring-border/5;
+  }
+
+  /* Animated Micro-interactions */
+  .pulse-subtle {
+    animation: pulseSubtle 4s ease-in-out infinite;
+  }
+
+  @keyframes pulseSubtle {
+
+    0%,
+    100% {
+      opacity: 1;
+      filter: brightness(1);
+    }
+
+    50% {
+      opacity: 0.95;
+      filter: brightness(1.1);
+    }
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(82, 97, 107, 0.3);
+    border-radius: 10px;
+    transition: background 0.2s;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(82, 97, 107, 0.5);
+  }
+
+  /* Chat Specific */
+  .message-bubble-in {
+    animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes messageIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Removed specific gradients and pulse effects */
+  .auth-gradient {
+    background: radial-gradient(circle at top right, rgba(82, 97, 107, 0.1), transparent),
+      radial-gradient(circle at bottom left, rgba(82, 97, 107, 0.05), transparent);
+  }
+}
+
+/* Shimmer Effect */
+.shimmer {
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.05) 50%,
+      rgba(255, 255, 255, 0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
