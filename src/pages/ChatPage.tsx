@@ -14,6 +14,7 @@ import { Header } from '@/components/layout/Header';
 export default function ChatPage() {
     const [session, setSession] = useState<any>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const {
         setCurrentUser,
         activeChatId,
@@ -66,6 +67,7 @@ export default function ChatPage() {
 
         if (error) {
             console.error("Error fetching chats:", error);
+            setFetchError('Failed to load chats. Please check your connection and try refreshing.');
             return;
         }
 
@@ -139,6 +141,26 @@ export default function ChatPage() {
                     {isSearchOpen ? (
                         <div className="flex-1">
                             <SearchResults />
+                        </div>
+                    ) : fetchError ? (
+                        <div className="flex-1 flex h-full items-center justify-center bg-background px-6">
+                            <div className="text-center space-y-4 animate-in max-w-sm">
+                                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 border border-red-500/20">
+                                    <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                    </svg>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-bold text-foreground">Connection Error</h3>
+                                    <p className="text-sm text-muted-foreground">{fetchError}</p>
+                                </div>
+                                <button
+                                    onClick={() => { setFetchError(null); if (session?.user) fetchChats(session.user.id); }}
+                                    className="px-6 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md hover:opacity-90 transition-all"
+                                >
+                                    Retry
+                                </button>
+                            </div>
                         </div>
                     ) : activeChatId ? (
                         <>

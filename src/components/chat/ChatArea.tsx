@@ -19,6 +19,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [replyingTo, setReplyingTo] = useState<any>(null);
+    const [sendError, setSendError] = useState<string | null>(null);
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -114,7 +115,11 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                 reply_to: replyingTo?.id || null
             });
 
-        if (error) console.error('Failed to send message', error);
+        if (error) {
+            console.error('Failed to send message', error);
+            setSendError('Failed to send message. Please try again.');
+            setTimeout(() => setSendError(null), 4000);
+        }
 
         setReplyingTo(null);
         setIsSending(false);
@@ -272,7 +277,6 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                             <textarea
                                 value={newMessage}
                                 onChange={(e) => {
-                                    setNewMessage(e.target.value);
                                     handleTyping(e);
                                 }}
                                 onKeyDown={(e) => {
@@ -312,6 +316,16 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                 </Button>
                             </div>
                         </div>
+
+                        {sendError && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-2 text-xs text-red-500 font-semibold text-center bg-red-500/10 rounded-xl py-2 border border-red-500/20"
+                            >
+                                {sendError}
+                            </motion.div>
+                        )}
                     </div>
                 </>
             ) : (
