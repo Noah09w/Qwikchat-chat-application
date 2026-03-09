@@ -47,6 +47,10 @@ export function useRealtime(userId: string | undefined) {
                         created_at: newMsg.created_at,
                         is_edited: newMsg.is_edited,
                         status: 'sent',
+                        file_url: newMsg.file_url,
+                        file_type: newMsg.file_type,
+                        reply_to: newMsg.reply_to,
+                        is_deleted_for_everyone: newMsg.is_deleted_for_everyone
                     });
                 }
             )

@@ -153,6 +153,21 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
 
             const type = file.type.startsWith('image/') ? 'IMAGE' : 'DOCUMENT';
 
+            const tempId = `temp-file-${Date.now()}`;
+
+            addMessage(activeChatId, {
+                id: tempId,
+                chat_id: activeChatId,
+                sender_id: currentUserId,
+                content: `Sent a ${type.toLowerCase()}`,
+                type: type,
+                created_at: new Date().toISOString(),
+                is_edited: false,
+                status: 'sent',
+                file_url: publicUrl,
+                file_type: file.type
+            });
+
             const { error: msgError } = await supabase
                 .from('messages')
                 .insert({
