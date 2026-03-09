@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBubble } from './MessageBubble';
-import { Send, Smile, X, Search, Info, Plus, MessageSquare, Phone, Video, Loader2 } from 'lucide-react';
+import { Send, Smile, X, Search, Info, Plus, MessageSquare, Phone, Video, Loader2, Mic } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -16,10 +16,27 @@ interface ChatAreaProps {
     activeChatId: string;
 }
 
+// Utility to format sticky dates
+function formatStickyDate(dateString: string) {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+        return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+        return 'Yesterday';
+    } else {
+        return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    }
+}
+
 export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
     const { messages, setMessages, addMessage, chats, isRightSidebarOpen, setRightSidebarOpen, typingUsers, setTypingUser } = useChatStore();
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [isFetching, setIsFetching] = useState(true);
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [sendError, setSendError] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -47,10 +64,14 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                     status: 'read'
                 })) as any);
             }
+            setIsFetching(false);
         }
 
         if (!messages[activeChatId]) {
+            setIsFetching(true);
             fetchMessages();
+        } else {
+            setIsFetching(false);
         }
 
         const channel = supabase.channel(`chat:${activeChatId}`)
@@ -277,25 +298,62 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                 </div>
                             </motion.div>
 
-                            <div className="space-y-6">
-                                {activeChatMessages.map((msg: any) => (
-                                    <motion.div
-                                        key={msg.id}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        <MessageBubble
-                                            {...msg}
-                                            isCurrentUser={msg.sender_id === currentUserId}
-                                            senderName={msg.sender_id === currentUserId ? 'Me' : currentChatDetails.name}
-                                            avatar={msg.sender_id === currentUserId ? undefined : currentChatDetails.avatar_url}
-                                            onReply={() => setReplyingTo(msg)}
-                                            bubbleStyle={useChatStore.getState().appearanceSettings.bubbleStyle}
-                                            fontSize={useChatStore.getState().chatBehavior.fontSize}
-                                        />
-                                    </motion.div>
-                                ))}
+                            <div className="space-y-1 mt-6">
+                                {isFetching ? (
+                                    Array.from({ length: 4 }).map((_, i) => (
+                                        <div key={i} className={cn("flex w-full mb-6", i % 2 === 0 ? "justify-end" : "justify-start")}>
+                                            <div className="flex gap-3 items-end opacity-50 animate-pulse">
+                                                {i % 2 !== 0 && <div className="h-10 w-10 rounded-full bg-[#2b2d31]" />}
+                                                <div className={cn("h-[60px] w-[200px] rounded-[20px] bg-[#2b2d31]", i % 2 === 0 ? "rounded-br-[4px]" : "rounded-bl-[4px]")} />
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    activeChatMessages.map((msg: any, index: number) => {
+                                        const prevMsg = activeChatMessages[index - 1];
+                                        const nextMsg = activeChatMessages[index + 1];
+
+                                        const msgDate = new Date(msg.created_at);
+                                        const prevMsgDate = prevMsg ? new Date(prevMsg.created_at) : null;
+
+                                        const showDateHeader = !prevMsg || formatStickyDate(msg.created_at) !== formatStickyDate(prevMsg.created_at);
+
+                                        const timeDiffPrev = prevMsg ? msgDate.getTime() - prevMsgDate!.getTime() : 0;
+                                        const timeDiffNext = nextMsg ? new Date(nextMsg.created_at).getTime() - msgDate.getTime() : 0;
+
+                                        const isGroupStart = !prevMsg || prevMsg.sender_id !== msg.sender_id || timeDiffPrev > 5 * 60 * 1000 || showDateHeader;
+                                        const isGroupEnd = !nextMsg || nextMsg.sender_id !== msg.sender_id || timeDiffNext > 5 * 60 * 1000 || (nextMsg && formatStickyDate(nextMsg.created_at) !== formatStickyDate(msg.created_at));
+
+                                        return (
+                                            <div key={msg.id} className="flex flex-col w-full">
+                                                {showDateHeader && (
+                                                    <div className="flex justify-center my-6">
+                                                        <div className="bg-[#2b2d31]/80 backdrop-blur-md border border-[#3f4148] px-4 py-1.5 rounded-[100px] shadow-sm">
+                                                            <span className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-widest">{formatStickyDate(msg.created_at)}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    transition={{ duration: 0.2 }}
+                                                >
+                                                    <MessageBubble
+                                                        {...msg}
+                                                        isCurrentUser={msg.sender_id === currentUserId}
+                                                        senderName={msg.sender_id === currentUserId ? 'Me' : currentChatDetails.name}
+                                                        avatar={msg.sender_id === currentUserId ? undefined : currentChatDetails.avatar_url}
+                                                        onReply={() => setReplyingTo(msg)}
+                                                        isGroupStart={isGroupStart}
+                                                        isGroupEnd={isGroupEnd}
+                                                        bubbleStyle={useChatStore.getState().appearanceSettings.bubbleStyle}
+                                                        fontSize={useChatStore.getState().chatBehavior.fontSize}
+                                                    />
+                                                </motion.div>
+                                            </div>
+                                        );
+                                    })
+                                )}
 
                                 <AnimatePresence>
                                     {activeTyping.length > 0 && (
@@ -380,6 +438,13 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                             />
 
                             <div className="flex items-center gap-1 mb-0.5 shrink-0 pr-1">
+                                <div className="hidden md:flex items-center gap-1 mr-2 opacity-60">
+                                    {/* Input Feature Previews (Voice + GIF) */}
+                                    <Button type="button" variant="ghost" size="icon" className="h-11 w-11 hover:text-foreground hover:bg-[#3f4148] rounded-xl transition-all cursor-not-allowed">
+                                        <span className="font-bold text-[12px] uppercase text-muted-foreground tracking-widest leading-none">GIF</span>
+                                    </Button>
+                                </div>
+
                                 <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
                                     <PopoverTrigger asChild>
                                         <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground/60 hover:text-foreground hover:bg-[#3f4148] rounded-xl transition-all">
