@@ -1,4 +1,4 @@
-import { X, ChevronRight, Image as ImageIcon, Bell, Shield, Users, Ban, Flag, Archive } from 'lucide-react';
+import { X, ChevronRight, Bell, Shield, Users, Ban, Flag, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,10 +7,13 @@ import { useChatStore } from '@/store/chatStore';
 import { cn } from '@/lib/utils';
 
 export function RightSidebar() {
-    const { activeChatId, chats, setRightSidebarOpen, toggleArchive } = useChatStore();
+    const { activeChatId, chats, messages, setRightSidebarOpen, toggleArchive } = useChatStore();
     const chat = chats.find(c => c.id === activeChatId);
 
     if (!chat) return null;
+
+    const chatMessages = activeChatId ? messages[activeChatId] || [] : [];
+    const mediaMessages = chatMessages.filter(m => m.type === 'IMAGE' && m.file_url);
 
     return (
         <div className="w-[320px] h-full bg-card border-l border-border flex flex-col animate-in slide-in-from-right duration-300 z-30">
@@ -48,11 +51,17 @@ export function RightSidebar() {
                             <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
                         </div>
                         <div className="grid grid-cols-3 gap-2 px-1">
-                            {[1, 2, 3].map((_, i) => (
+                            {mediaMessages.length > 0 ? mediaMessages.slice(-6).reverse().map((msg, i) => (
                                 <div key={i} className="aspect-square rounded-xl bg-muted border border-border flex items-center justify-center group overflow-hidden cursor-pointer hover:border-primary/50 transition-all">
-                                    <ImageIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="w-full h-full">
+                                        <img src={msg.file_url} alt="Shared media" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                                    </a>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="col-span-3 text-center py-6 bg-muted/30 rounded-xl border border-border border-dashed text-xs text-muted-foreground font-semibold">
+                                    No media shared yet
+                                </div>
+                            )}
                         </div>
                     </div>
 
