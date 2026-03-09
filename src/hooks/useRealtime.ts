@@ -17,18 +17,9 @@ export function useRealtime(userId: string | undefined) {
                 (payload: any) => {
                     const newMsg = payload.new;
 
-                    // Prevent notifications for own messages
+                    // Prevent notifications and duplicates for own messages
+                    // (They are added optimistically in ChatArea.tsx)
                     if (newMsg.sender_id === userId) {
-                        addMessage(newMsg.chat_id, {
-                            id: newMsg.id,
-                            chat_id: newMsg.chat_id,
-                            sender_id: newMsg.sender_id,
-                            content: newMsg.content,
-                            type: newMsg.type,
-                            created_at: newMsg.created_at,
-                            is_edited: newMsg.is_edited,
-                            status: 'sent',
-                        });
                         return;
                     }
 

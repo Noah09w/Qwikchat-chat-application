@@ -4,7 +4,9 @@ import {
     Reply,
     MoreHorizontal,
     Check,
-    CheckCheck
+    CheckCheck,
+    FileText,
+    Download
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -17,7 +19,9 @@ interface MessageBubbleProps {
     isCurrentUser: boolean;
     senderName?: string;
     avatar?: string;
-    type?: 'TEXT' | 'IMAGE' | 'DOCUMENT';
+    type?: 'TEXT' | 'IMAGE' | 'DOCUMENT' | 'SYSTEM' | 'FILE';
+    file_url?: string;
+    file_type?: string;
     onReply?: () => void;
     bubbleStyle?: 'modern' | 'compact' | 'classic';
     fontSize?: 'small' | 'medium' | 'large';
@@ -30,6 +34,9 @@ export function MessageBubble({
     isCurrentUser,
     senderName,
     avatar,
+    type,
+    file_url,
+    file_type,
     onReply,
     bubbleStyle = 'modern',
     fontSize = 'medium'
@@ -94,6 +101,27 @@ export function MessageBubble({
                                 <MoreHorizontal className="h-4 w-4" />
                             </button>
                         </div>
+
+                        {type === 'IMAGE' && file_url ? (
+                            <div className="mb-2">
+                                <a href={file_url} target="_blank" rel="noopener noreferrer">
+                                    <img src={file_url} alt="Shared image" className="max-w-[200px] md:max-w-xs rounded-xl cursor-pointer hover:opacity-90 transition-opacity object-cover" />
+                                </a>
+                            </div>
+                        ) : (type === 'DOCUMENT' || type === 'FILE') && file_url ? (
+                            <div className="mb-2 flex items-center gap-3 p-3 bg-background/20 rounded-xl border border-border/50 max-w-sm">
+                                <FileText className="h-8 w-8 text-primary/80 shrink-0" />
+                                <div className="flex flex-col flex-1 min-w-0">
+                                    <span className="text-sm font-semibold truncate hover:underline cursor-pointer">
+                                        <a href={file_url} target="_blank" rel="noopener noreferrer">Attachment</a>
+                                    </span>
+                                    <span className="text-xs text-muted-foreground uppercase">{file_type?.split('/').pop() || 'File'}</span>
+                                </div>
+                                <a href={file_url} download target="_blank" rel="noopener noreferrer" className="p-2 bg-background/40 hover:bg-background/80 rounded-lg transition-colors shrink-0">
+                                    <Download className="h-4 w-4" />
+                                </a>
+                            </div>
+                        ) : null}
 
                         <p className={cn("font-medium leading-relaxed whitespace-pre-wrap break-words", fontClasses)}>{content}</p>
 

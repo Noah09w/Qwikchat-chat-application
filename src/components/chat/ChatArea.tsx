@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion, AnimatePresence } from 'framer-motion';
+import EmojiPicker from 'emoji-picker-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface ChatAreaProps {
     currentUserId: string;
@@ -20,8 +22,11 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
     const [isSending, setIsSending] = useState(false);
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [sendError, setSendError] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
     const scrollRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const activeChatMessages = messages[activeChatId] || [];
     const currentChatDetails = chats.find(c => c.id === activeChatId);
@@ -123,6 +128,56 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
 
         setReplyingTo(null);
         setIsSending(false);
+    };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || isUploading) return;
+
+        setIsUploading(true);
+        setSendError(null);
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${activeChatId}/${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('chat-attachments')
+                .upload(fileName, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('chat-attachments')
+                .getPublicUrl(fileName);
+
+            const type = file.type.startsWith('image/') ? 'IMAGE' : 'DOCUMENT';
+
+            const { error: msgError } = await supabase
+                .from('messages')
+                .insert({
+                    chat_id: activeChatId,
+                    sender_id: currentUserId,
+                    content: `Sent a ${type.toLowerCase()}`,
+                    type: type,
+                    file_url: publicUrl,
+                    file_type: file.type
+                });
+
+            if (msgError) throw msgError;
+
+        } catch (error: any) {
+            console.error('Upload failed', error);
+            setSendError('Failed to upload file. Please try again.');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const onEmojiClick = (emojiData: any) => {
+        setNewMessage(prev => prev + emojiData.emoji);
+        setShowEmojiPicker(false);
     };
 
     return (
@@ -270,8 +325,21 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                         </AnimatePresence>
 
                         <div className="flex items-end gap-2 bg-card border border-border rounded-2xl p-2 premium-shadow ring-1 ring-border/50">
-                            <Button type="button" variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all mb-0.5">
-                                <Plus className="h-5 w-5" />
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                onChange={handleFileSelect}
+                            />
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all mb-0.5"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                            >
+                                {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
                             </Button>
 
                             <textarea
@@ -297,11 +365,19 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                             />
 
                             <div className="flex items-center gap-1 mb-0.5">
-                                {[Smile].map((Icon, i) => (
-                                    <Button key={i} type="button" variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-foreground rounded-xl transition-all">
-                                        <Icon className="h-5 w-5" />
-                                    </Button>
-                                ))}
+                                <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+                                    <PopoverTrigger asChild>
+                                        <Button type="button" variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-foreground rounded-xl transition-all">
+                                            <Smile className="h-5 w-5" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="top" className="p-0 border-none bg-transparent shadow-none w-auto mb-4">
+                                        <EmojiPicker
+                                            onEmojiClick={onEmojiClick}
+                                            theme={useChatStore.getState().theme === 'dark' ? 'dark' as any : 'light' as any}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                                 <Button
                                     onClick={handleSendMessage}
                                     disabled={!newMessage.trim() || isSending}
