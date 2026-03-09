@@ -1,73 +1,86 @@
-# React + TypeScript + Vite
+# QwikChat – Real-Time Messaging Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+QwikChat is a modern real-time messaging web application designed to provide fast, secure, and seamless communication between users. The platform supports instant messaging, group chats, user authentication, and real-time updates with a clean and responsive interface.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Core Messaging
+- Real-time messaging
+- One-to-one chat
+- Group chat support
+- Instant message delivery
+- Message timestamps
 
-## React Compiler
+### User Features
+- Secure user authentication
+- User profiles
+- Online/offline status
+- Typing indicators
+- Message read receipts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Chat Features
+- Send text messages
+- Image and file sharing
+- Message history
+- Chat search functionality
+- Message notifications
 
-## Expanding the ESLint configuration
+### UI / UX
+- Clean modern chat interface
+- Mobile responsive design
+- Dark mode ready
+- Smooth real-time updates
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠 Tech Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Frontend
+- React.js
+- Vite
+- TypeScript
+- Tailwind CSS
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Backend
+- Supabase
+  - Authentication
+  - PostgreSQL Database
+  - Realtime subscriptions
+  - File storage
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Deployment
+- Vercel / Netlify
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🏗 Project Architecture
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Client (React + Vite)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+↓  
+
+Supabase Backend
+- Authentication
+- Database
+- Realtime API
+- Storage
+
+## 🔒 Security Features
+
+- Secure authentication system
+- Protected user sessions
+- Secure database access
+- Environment variable protection
+
+## 📦 Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Noah09w/Qwikchat-chat-application.git
+👨‍💻 Author
+
+Gourav Singh
+
+Data Science Student
+GitHub: https://github.com/Noah09w
+
+📄 License
+
+This project is licensed under the MIT License.
