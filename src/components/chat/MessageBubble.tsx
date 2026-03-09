@@ -44,22 +44,22 @@ export function MessageBubble({
     const time = new Date(created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const bubbleClasses = cn(
-        "relative px-4 py-2.5 transition-all duration-200 premium-shadow",
+        "relative transition-all duration-200 shadow-sm overflow-hidden",
         // Bubble Style Logic
-        bubbleStyle === 'modern' && (isCurrentUser ? "rounded-2xl rounded-tr-none" : "rounded-2xl rounded-tl-none"),
+        bubbleStyle === 'modern' && (isCurrentUser ? "rounded-[20px] rounded-br-[4px]" : "rounded-[20px] rounded-tl-[4px]"),
         bubbleStyle === 'compact' && "rounded-lg",
-        bubbleStyle === 'classic' && (isCurrentUser ? "rounded-2xl rounded-br-none" : "rounded-2xl rounded-bl-none"),
+        bubbleStyle === 'classic' && (isCurrentUser ? "rounded-xl rounded-br-none" : "rounded-xl rounded-bl-none"),
 
         // Colors
         isCurrentUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-card text-foreground border border-border"
+            ? "bg-[#47525d] text-[#f2f3f5]"
+            : "bg-[#2b2d31] text-[#f2f3f5]"
     );
 
     const fontClasses = cn(
-        fontSize === 'small' && "text-[11px]",
-        fontSize === 'medium' && "text-[13px]",
-        fontSize === 'large' && "text-[15px]"
+        fontSize === 'small' && "text-[13px]",
+        fontSize === 'medium' && "text-[15px]",
+        fontSize === 'large' && "text-[17px]"
     );
 
     return (
@@ -103,46 +103,69 @@ export function MessageBubble({
                         </div>
 
                         {type === 'IMAGE' && file_url ? (
-                            <div className="mb-2">
+                            <div className="relative group/image">
                                 <a href={file_url} target="_blank" rel="noopener noreferrer">
-                                    <img src={file_url} alt="Shared image" className="max-w-[200px] md:max-w-xs rounded-xl cursor-pointer hover:opacity-90 transition-opacity object-cover" />
+                                    <img src={file_url} alt="Shared image" className="max-w-[280px] md:max-w-sm w-full cursor-pointer hover:opacity-95 transition-opacity object-cover block" />
                                 </a>
-                            </div>
-                        ) : (type === 'DOCUMENT' || type === 'FILE') && file_url ? (
-                            <div className="mb-2 flex items-center gap-3 p-3 bg-background/20 rounded-xl border border-border/50 max-w-sm">
-                                <FileText className="h-8 w-8 text-primary/80 shrink-0" />
-                                <div className="flex flex-col flex-1 min-w-0">
-                                    <span className="text-sm font-semibold truncate hover:underline cursor-pointer">
-                                        <a href={file_url} target="_blank" rel="noopener noreferrer">Attachment</a>
+                                {content && content !== `Sent a image` && (
+                                    <p className={cn("px-4 py-2.5 font-medium leading-relaxed whitespace-pre-wrap break-words", fontClasses)}>{content}</p>
+                                )}
+                                <div className={cn(
+                                    "flex items-center gap-1.5 px-3 pb-2 pt-1",
+                                    (!content || content === `Sent a image`) && "absolute bottom-0 right-0 bg-gradient-to-t from-black/60 to-transparent w-full justify-end pt-4",
+                                    content && content !== `Sent a image` && isCurrentUser ? "justify-end" : "justify-start"
+                                )}>
+                                    <span className={cn(
+                                        "text-[10px] font-semibold tracking-wide",
+                                        (!content || content === `Sent a image`) ? "text-white/90 drop-shadow-md" : "text-white/60"
+                                    )}>
+                                        {time}
                                     </span>
-                                    <span className="text-xs text-muted-foreground uppercase">{file_type?.split('/').pop() || 'File'}</span>
+                                    {isCurrentUser && (
+                                        <div className="flex items-center ml-0.5">
+                                            {status === 'sent' && <Check className={cn("h-3.5 w-3.5", (!content || content === `Sent a image`) ? "text-white/80 drop-shadow-md" : "text-white/60")} />}
+                                            {status === 'delivered' && <CheckCheck className={cn("h-3.5 w-3.5", (!content || content === `Sent a image`) ? "text-white/80 drop-shadow-md" : "text-white/60")} />}
+                                            {status === 'read' && <CheckCheck className={cn("h-3.5 w-3.5", (!content || content === `Sent a image`) ? "text-white" : "text-white/90")} />}
+                                        </div>
+                                    )}
                                 </div>
-                                <a href={file_url} download target="_blank" rel="noopener noreferrer" className="p-2 bg-background/40 hover:bg-background/80 rounded-lg transition-colors shrink-0">
-                                    <Download className="h-4 w-4" />
-                                </a>
                             </div>
-                        ) : null}
+                        ) : (
+                            <div className="px-4 py-2.5">
+                                {(type === 'DOCUMENT' || type === 'FILE') && file_url && (
+                                    <div className="mb-2 flex items-center gap-3 p-3 bg-[#1e1f22]/50 rounded-xl max-w-sm">
+                                        <FileText className="h-8 w-8 text-[#f2f3f5]/80 shrink-0" />
+                                        <div className="flex flex-col flex-1 min-w-0">
+                                            <span className="text-sm font-semibold truncate hover:underline cursor-pointer text-[#f2f3f5]">
+                                                <a href={file_url} target="_blank" rel="noopener noreferrer">Attachment</a>
+                                            </span>
+                                            <span className="text-xs text-muted-foreground uppercase">{file_type?.split('/').pop() || 'File'}</span>
+                                        </div>
+                                        <a href={file_url} download target="_blank" rel="noopener noreferrer" className="p-2 bg-[#2b2d31] hover:bg-[#3f4148] rounded-lg transition-colors shrink-0 text-[#f2f3f5]">
+                                            <Download className="h-4 w-4" />
+                                        </a>
+                                    </div>
+                                )}
 
-                        <p className={cn("font-medium leading-relaxed whitespace-pre-wrap break-words", fontClasses)}>{content}</p>
+                                <p className={cn("font-medium leading-relaxed whitespace-pre-wrap break-words", fontClasses)}>{content}</p>
 
-                        <div className={cn(
-                            "flex items-center gap-1.5 mt-1.5",
-                            isCurrentUser ? "justify-end" : "justify-start"
-                        )}>
-                            <span className={cn(
-                                "text-[9px] font-bold uppercase tracking-widest tabular-nums",
-                                isCurrentUser ? "text-primary-foreground/60" : "text-muted-foreground/80"
-                            )}>
-                                {time}
-                            </span>
-                            {isCurrentUser && (
-                                <div className="flex items-center ml-0.5">
-                                    {status === 'sent' && <Check className="h-3 w-3 text-primary-foreground/40" />}
-                                    {status === 'delivered' && <CheckCheck className="h-3 w-3 text-primary-foreground/40" />}
-                                    {status === 'read' && <CheckCheck className="h-3 w-3 text-primary-foreground/90" />}
+                                <div className={cn(
+                                    "flex items-center gap-1.5 mt-1.5",
+                                    isCurrentUser ? "justify-end" : "justify-start"
+                                )}>
+                                    <span className="text-[10px] font-semibold text-white/50 tracking-wide">
+                                        {time}
+                                    </span>
+                                    {isCurrentUser && (
+                                        <div className="flex items-center ml-0.5">
+                                            {status === 'sent' && <Check className="h-3.5 w-3.5 text-white/40" />}
+                                            {status === 'delivered' && <CheckCheck className="h-3.5 w-3.5 text-white/40" />}
+                                            {status === 'read' && <CheckCheck className="h-3.5 w-3.5 text-white/80" />}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
