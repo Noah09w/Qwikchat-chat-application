@@ -1,9 +1,40 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useChatStore } from '@/store/chatStore';
+import type { RealtimePostgresInsertPayload, RealtimePostgresUpdatePayload } from '@supabase/supabase-js';
+import type { Message } from '@/store/chatStore';
+
+interface PresencePayload {
+    key: string;
+}
+
+function playNotificationTone() {
+    if (typeof window === 'undefined') return;
+
+    const AudioContextConstructor = window.AudioContext;
+    if (!AudioContextConstructor) return;
+
+    const context = new AudioContextConstructor();
+    const oscillator = context.createOscillator();
+    const gainNode = context.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, context.currentTime);
+    gainNode.gain.setValueAtTime(0.0001, context.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.18);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.2);
+    oscillator.onended = () => {
+        void context.close();
+    };
+}
 
 export function useRealtime(userId: string | undefined) {
-    const { addMessage, updateMessageStatus, setOnlineUsers, addOnlineUser, removeOnlineUser } = useChatStore();
+    const { addMessage, patchMessage, setOnlineUsers, addOnlineUser, removeOnlineUser } = useChatStore();
 
     useEffect(() => {
         if (!userId) return;
@@ -14,7 +45,7 @@ export function useRealtime(userId: string | undefined) {
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'messages' },
-                (payload: any) => {
+                (payload: RealtimePostgresInsertPayload<Message>) => {
                     const newMsg = payload.new;
 
                     // Prevent notifications and duplicates for own messages
@@ -26,7 +57,8 @@ export function useRealtime(userId: string | undefined) {
                     // Handle Notifications
                     const { notifications } = useChatStore.getState();
 
-                    if (notifications.desktop && Notification.permission === 'granted') {
+                    const canShowNotifications = typeof window !== 'undefined' && 'Notification' in window;
+                    if (notifications.desktop && canShowNotifications && Notification.permission === 'granted') {
                         new Notification('New Message', {
                             body: notifications.previews ? newMsg.content : 'You have a new message',
                             icon: '/logo.png' // Adjust if you have a specific icon path
@@ -34,8 +66,7 @@ export function useRealtime(userId: string | undefined) {
                     }
 
                     if (notifications.sound) {
-                        const audio = new Audio('/notification.mp3'); // Ensure this file exists or use a CDN link
-                        audio.play().catch(() => { }); // Catch play errors (e.g. user interaction required)
+                        playNotificationTone();
                     }
 
                     addMessage(newMsg.chat_id, {
@@ -57,9 +88,17 @@ export function useRealtime(userId: string | undefined) {
             .on(
                 'postgres_changes',
                 { event: 'UPDATE', schema: 'public', table: 'messages' },
-                (payload: any) => {
-                    // For read receipts or edits (omitted detailed implementation for brevity, extensible later)
-                    updateMessageStatus(payload.new.id, payload.new.status || 'delivered');
+                (payload: RealtimePostgresUpdatePayload<Message>) => {
+                    patchMessage(payload.new.chat_id, payload.new.id, {
+                        content: payload.new.content,
+                        type: payload.new.type,
+                        is_edited: payload.new.is_edited,
+                        status: payload.new.status || 'delivered',
+                        file_url: payload.new.file_url,
+                        file_type: payload.new.file_type,
+                        reply_to: payload.new.reply_to,
+                        is_deleted_for_everyone: payload.new.is_deleted_for_everyone
+                    });
                 }
             )
             .subscribe();
@@ -82,10 +121,10 @@ export function useRealtime(userId: string | undefined) {
                 }
                 setOnlineUsers(users);
             })
-            .on('presence', { event: 'join' }, ({ key }) => {
+            .on('presence', { event: 'join' }, ({ key }: PresencePayload) => {
                 addOnlineUser(key);
             })
-            .on('presence', { event: 'leave' }, ({ key }) => {
+            .on('presence', { event: 'leave' }, ({ key }: PresencePayload) => {
                 removeOnlineUser(key);
             })
             .subscribe(async (status) => {
@@ -98,5 +137,5 @@ export function useRealtime(userId: string | undefined) {
             supabase.removeChannel(messageChannel);
             supabase.removeChannel(presenceChannel);
         };
-    }, [userId, addMessage, updateMessageStatus, setOnlineUsers, addOnlineUser, removeOnlineUser]);
+    }, [userId, addMessage, patchMessage, setOnlineUsers, addOnlineUser, removeOnlineUser]);
 }

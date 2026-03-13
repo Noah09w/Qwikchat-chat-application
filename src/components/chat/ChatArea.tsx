@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBubble } from './MessageBubble';
-import { Send, Smile, X, Search, Info, Plus, MessageSquare, Phone, Video, Loader2, Mic } from 'lucide-react';
+import { Send, Smile, X, Search, Info, Plus, MessageSquare, Phone, Video, Loader2 } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -10,11 +10,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiPicker from 'emoji-picker-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { Message } from '@/store/chatStore';
 
 interface ChatAreaProps {
     currentUserId: string;
     activeChatId: string;
 }
+
+interface EmojiSelection {
+    emoji: string;
+}
+
+const EMPTY_MESSAGES: Message[] = [];
 
 // Utility to format sticky dates
 function formatStickyDate(dateString: string) {
@@ -33,19 +40,20 @@ function formatStickyDate(dateString: string) {
 }
 
 export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
-    const { messages, setMessages, addMessage, chats, isRightSidebarOpen, setRightSidebarOpen, typingUsers, setTypingUser } = useChatStore();
+    const { messages, setMessages, addMessage, replaceMessage, deleteMessage, chats, isRightSidebarOpen, setRightSidebarOpen, typingUsers, setTypingUser, setSearchOpen, setSearchQuery } = useChatStore();
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [isFetching, setIsFetching] = useState(true);
-    const [replyingTo, setReplyingTo] = useState<any>(null);
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [sendError, setSendError] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-    const activeChatMessages = messages[activeChatId] || [];
+    const activeChatMessages = messages[activeChatId] ?? EMPTY_MESSAGES;
     const currentChatDetails = chats.find(c => c.id === activeChatId);
     const activeTyping = Array.from(typingUsers[activeChatId] || []).filter(uid => uid !== currentUserId);
 
@@ -62,7 +70,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                 setMessages(activeChatId, data.map(msg => ({
                     ...msg,
                     status: 'read'
-                })) as any);
+                })) as Message[]);
             }
             setIsFetching(false);
         }
@@ -80,10 +88,13 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
             })
             .subscribe();
 
+        typingChannelRef.current = channel;
+
         return () => {
+            typingChannelRef.current = null;
             supabase.removeChannel(channel);
         };
-    }, [activeChatId, setMessages, setTypingUser]);
+    }, [activeChatId, messages, setMessages, setTypingUser]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -96,22 +107,21 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
 
     const handleTyping = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setNewMessage(e.target.value);
-        supabase.channel(`chat:${activeChatId}`).send({
+        typingChannelRef.current?.send({
             type: 'broadcast',
             event: 'typing',
             payload: { user_id: currentUserId, typing: e.target.value.length > 0 },
         });
     };
 
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const sendMessage = async () => {
         if (!newMessage.trim() || isSending) return;
 
         setIsSending(true);
         const textToSend = newMessage.trim();
         setNewMessage('');
 
-        supabase.channel(`chat:${activeChatId}`).send({
+        typingChannelRef.current?.send({
             type: 'broadcast',
             event: 'typing',
             payload: { user_id: currentUserId, typing: false },
@@ -131,7 +141,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
             status: 'sent',
         });
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('messages')
             .insert({
                 chat_id: activeChatId,
@@ -139,16 +149,29 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                 content: textToSend,
                 type: 'TEXT',
                 reply_to: replyingTo?.id || null
-            });
+            })
+            .select('*')
+            .single();
 
         if (error) {
             console.error('Failed to send message', error);
+            await deleteMessage(activeChatId, tempId, false);
+            setNewMessage(textToSend);
             setSendError('Failed to send message. Please try again.');
             setTimeout(() => setSendError(null), 4000);
+        } else if (data) {
+            replaceMessage(activeChatId, tempId, {
+                ...(data as Message),
+                status: 'read'
+            });
         }
 
         setReplyingTo(null);
         setIsSending(false);
+    };
+
+    const handleSendMessage = async () => {
+        await sendMessage();
     };
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,7 +212,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                 file_type: file.type
             });
 
-            const { error: msgError } = await supabase
+            const { data: insertedMessage, error: msgError } = await supabase
                 .from('messages')
                 .insert({
                     chat_id: activeChatId,
@@ -198,11 +221,19 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                     type: type,
                     file_url: publicUrl,
                     file_type: file.type
-                });
+                })
+                .select('*')
+                .single();
 
             if (msgError) throw msgError;
+            if (insertedMessage) {
+                replaceMessage(activeChatId, tempId, {
+                    ...(insertedMessage as Message),
+                    status: 'read'
+                });
+            }
 
-        } catch (error: any) {
+        } catch (error) {
             console.error('Upload failed', error);
             setSendError('Failed to upload file. Please try again.');
         } finally {
@@ -211,9 +242,35 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
         }
     };
 
-    const onEmojiClick = (emojiData: any) => {
+    const onEmojiClick = (emojiData: EmojiSelection) => {
         setNewMessage(prev => prev + emojiData.emoji);
         setShowEmojiPicker(false);
+    };
+
+    const openGifSearch = () => {
+        const query = encodeURIComponent(newMessage.trim() || 'reaction gif');
+        window.open(`https://tenor.com/search/${query}-gifs`, '_blank', 'noopener,noreferrer');
+    };
+
+    const startCall = (video: boolean) => {
+        const room = `qwikchat-${activeChatId}`;
+        const suffix = video ? '' : '#config.startWithVideoMuted=true';
+        window.open(`https://meet.jit.si/${room}${suffix}`, '_blank', 'noopener,noreferrer');
+    };
+
+    const openSearch = () => {
+        setSearchQuery(currentChatDetails?.name || '');
+        setSearchOpen(true);
+    };
+
+    const handleDelete = async (messageId: string, forEveryone: boolean) => {
+        try {
+            await deleteMessage(activeChatId, messageId, forEveryone);
+        } catch (error) {
+            console.error('Failed to delete message', error);
+            setSendError('Failed to delete message. Please try again.');
+            setTimeout(() => setSendError(null), 4000);
+        }
     };
 
     return (
@@ -223,45 +280,49 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
             className="flex flex-col h-full relative overflow-hidden bg-background"
         >
             {currentChatDetails ? (
-                <div className="flex flex-col h-full bg-[#1e1f22]">
+                <div className="flex h-full flex-col bg-[radial-gradient(circle_at_top,_hsl(var(--secondary)/0.3),_transparent_38%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--card)))]">
                     {/* -- Chat Header -- */}
-                    <div className="h-[var(--header-height)] flex items-center justify-between px-6 shrink-0 z-20">
-                        <div className="flex items-center gap-4">
+                    <div className="glass-panel z-20 flex h-16 shrink-0 items-center justify-between px-3 md:h-[var(--header-height)] md:px-6">
+                        <div className="flex min-w-0 items-center gap-3 md:gap-4">
                             <motion.div
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
-                                className="relative group cursor-pointer"
+                                className="relative hidden cursor-pointer group sm:block"
                             >
-                                <Avatar className="h-10 w-10 bg-[#2b2d31] transition-transform group-hover:scale-105">
+                                <Avatar className="h-10 w-10 border border-border/60 bg-card shadow-lg transition-transform group-hover:scale-105">
                                     <AvatarImage src={currentChatDetails.avatar_url} />
-                                    <AvatarFallback className="bg-[#2b2d31] text-foreground font-semibold text-xs uppercase">
+                                    <AvatarFallback className="bg-primary/12 text-foreground font-semibold text-xs uppercase">
                                         {currentChatDetails.name?.substring(0, 2) || '??'}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-[#1e1f22] shadow-sm" />
+                                <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-primary border-2 border-card shadow-sm" />
                             </motion.div>
-                            <div className="flex flex-col">
-                                <h2 className="text-sm font-semibold text-foreground/90 leading-none mb-1">{currentChatDetails.name}</h2>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-muted-foreground/80 uppercase tracking-wider font-semibold">End-to-end encrypted</span>
+                            <div className="flex min-w-0 flex-col">
+                                <h2 className="mb-1 truncate text-sm font-semibold leading-none text-foreground/90">{currentChatDetails.name}</h2>
+                                <div className="hidden items-center gap-2 sm:flex">
+                                    <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/80">End-to-end encrypted</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-1">
-                            <div className="flex items-center rounded-lg p-1 mr-1">
-                                {[Phone, Video, Search].map((Icon) => (
-                                    <Button key={Icon.name} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-[#2b2d31] transition-all">
-                                        <Icon className="h-4 w-4" />
-                                    </Button>
-                                ))}
+                            <div className="mr-1 flex items-center rounded-xl border border-border/60 bg-card/70 p-1 shadow-sm">
+                                <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-lg text-muted-foreground/70 transition-all hover:bg-accent hover:text-foreground sm:inline-flex" onClick={() => startCall(false)}>
+                                    <Phone className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-lg text-muted-foreground/70 transition-all hover:bg-accent hover:text-foreground sm:inline-flex" onClick={() => startCall(true)}>
+                                    <Video className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-accent transition-all" onClick={openSearch}>
+                                    <Search className="h-4 w-4" />
+                                </Button>
                             </div>
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 className={cn(
                                     "h-9 w-9 rounded-lg transition-all",
-                                    isRightSidebarOpen ? "bg-[#2b2d31] text-foreground" : "text-muted-foreground/70 border border-[#2b2d31]/50 hover:bg-[#2b2d31] hover:text-foreground"
+                                    isRightSidebarOpen ? "bg-accent text-foreground" : "text-muted-foreground/70 border border-border/60 bg-card/70 hover:bg-accent hover:text-foreground"
                                 )}
                                 onClick={() => setRightSidebarOpen(!isRightSidebarOpen)}
                             >
@@ -271,45 +332,45 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                     </div>
 
                     {/* -- Messages -- */}
-                    <ScrollArea ref={scrollRef} className="flex-1 px-6">
-                        <div className="max-w-4xl mx-auto pt-24 pb-10">
+                    <ScrollArea ref={scrollRef} className="flex-1 px-4 md:px-6">
+                        <div className="w-full pb-6 pt-6 sm:pt-10">
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="flex flex-col items-center mb-16"
+                                className="mb-10 hidden flex-col items-center sm:flex"
                             >
                                 <div className="relative mb-6">
-                                    <Avatar className="h-[88px] w-[88px] bg-[#2b2d31]">
+                                    <Avatar className="h-[88px] w-[88px] border border-border/60 bg-card shadow-2xl">
                                         <AvatarImage src={currentChatDetails.avatar_url} />
-                                        <AvatarFallback className="text-2xl font-semibold bg-[#2b2d31] text-foreground/80">
+                                        <AvatarFallback className="text-2xl font-semibold bg-primary/12 text-foreground/80">
                                             {currentChatDetails.name?.substring(0, 2).toUpperCase()}
                                         </AvatarFallback>
                                     </Avatar>
-                                    <div className="absolute -bottom-1 -right-1 h-[26px] w-[26px] rounded-full bg-[#3f4148] flex items-center justify-center border-[3px] border-[#1e1f22]">
+                                    <div className="absolute -bottom-1 -right-1 h-[26px] w-[26px] rounded-full bg-primary/90 flex items-center justify-center border-[3px] border-card shadow-lg">
                                         <MessageSquare className="h-3 w-3 text-foreground/80" />
                                     </div>
                                 </div>
-                                <h3 className="text-[22px] font-bold text-white mb-2 tracking-tight">{currentChatDetails.name}</h3>
+                                <h3 className="text-[22px] font-bold text-foreground mb-2 tracking-tight">{currentChatDetails.name}</h3>
                                 <p className="text-[10px] text-muted-foreground/80 uppercase tracking-widest font-bold">Secure connection established</p>
 
-                                <div className="mt-8 flex gap-3">
-                                    <button className="px-6 py-2.5 rounded-[100px] bg-[#2b2d31] text-[10px] font-bold text-foreground/80 uppercase tracking-wider hover:bg-[#3f4148] transition-all border border-transparent shadow-sm">View Profile</button>
-                                    <button className="px-6 py-2.5 rounded-[100px] bg-[#2b2d31] text-[10px] font-bold text-foreground/80 uppercase tracking-wider hover:bg-[#3f4148] transition-all border border-transparent shadow-sm">Media & Files</button>
+                                <div className="mt-6 flex gap-3">
+                                    <button className="px-6 py-2.5 rounded-[100px] bg-card/90 text-[10px] font-bold text-foreground/80 uppercase tracking-wider hover:bg-accent transition-all border border-border/60 shadow-sm">View Profile</button>
+                                    <button className="px-6 py-2.5 rounded-[100px] bg-card/90 text-[10px] font-bold text-foreground/80 uppercase tracking-wider hover:bg-accent transition-all border border-border/60 shadow-sm">Media & Files</button>
                                 </div>
                             </motion.div>
 
-                            <div className="space-y-1 mt-6">
+                            <div className="mt-4 space-y-1">
                                 {isFetching ? (
                                     Array.from({ length: 4 }).map((_, i) => (
-                                        <div key={i} className={cn("flex w-full mb-6", i % 2 === 0 ? "justify-end" : "justify-start")}>
-                                            <div className="flex gap-3 items-end opacity-50 animate-pulse">
-                                                {i % 2 !== 0 && <div className="h-10 w-10 rounded-full bg-[#2b2d31]" />}
-                                                <div className={cn("h-[60px] w-[200px] rounded-[20px] bg-[#2b2d31]", i % 2 === 0 ? "rounded-br-[4px]" : "rounded-bl-[4px]")} />
+                                            <div key={i} className={cn("flex w-full mb-6", i % 2 === 0 ? "justify-end" : "justify-start")}>
+                                                <div className="flex gap-3 items-end opacity-50 animate-pulse">
+                                                {i % 2 !== 0 && <div className="h-10 w-10 rounded-full bg-card border border-border/60" />}
+                                                <div className={cn("h-[60px] w-[200px] rounded-[20px] bg-card border border-border/60", i % 2 === 0 ? "rounded-br-[4px]" : "rounded-bl-[4px]")} />
+                                                </div>
                                             </div>
-                                        </div>
                                     ))
                                 ) : (
-                                    activeChatMessages.map((msg: any, index: number) => {
+                                    activeChatMessages.map((msg, index: number) => {
                                         const prevMsg = activeChatMessages[index - 1];
                                         const nextMsg = activeChatMessages[index + 1];
 
@@ -328,7 +389,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                             <div key={msg.id} className="flex flex-col w-full">
                                                 {showDateHeader && (
                                                     <div className="flex justify-center my-6">
-                                                        <div className="bg-[#2b2d31]/80 backdrop-blur-md border border-[#3f4148] px-4 py-1.5 rounded-[100px] shadow-sm">
+                                                        <div className="bg-card/80 backdrop-blur-md border border-border/60 px-4 py-1.5 rounded-[100px] shadow-sm">
                                                             <span className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-widest">{formatStickyDate(msg.created_at)}</span>
                                                         </div>
                                                     </div>
@@ -343,7 +404,9 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                                         isCurrentUser={msg.sender_id === currentUserId}
                                                         senderName={msg.sender_id === currentUserId ? 'Me' : currentChatDetails.name}
                                                         avatar={msg.sender_id === currentUserId ? undefined : currentChatDetails.avatar_url}
-                                                        onReply={() => setReplyingTo(msg)}
+                                                        onReply={msg.is_deleted_for_everyone ? undefined : () => setReplyingTo(msg)}
+                                                        onDeleteForMe={() => void handleDelete(msg.id, false)}
+                                                        onDeleteForEveryone={msg.sender_id === currentUserId ? () => void handleDelete(msg.id, true) : undefined}
                                                         isGroupStart={isGroupStart}
                                                         isGroupEnd={isGroupEnd}
                                                         bubbleStyle={useChatStore.getState().appearanceSettings.bubbleStyle}
@@ -363,10 +426,10 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                             exit={{ opacity: 0, y: 5 }}
                                             className="flex items-center gap-2 ml-1"
                                         >
-                                            <div className="flex gap-1.5 px-3 py-2 bg-muted rounded-full">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
-                                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
-                                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
+                                                <div className="flex gap-1.5 px-3 py-2 bg-card border border-border/60 rounded-full shadow-sm">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
                                             </div>
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">is typing...</span>
                                         </motion.div>
@@ -377,27 +440,27 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                     </ScrollArea>
 
                     {/* -- Input Bar -- */}
-                    <div className="px-6 pb-8 pt-2 shrink-0 max-w-4xl mx-auto w-full z-20">
+                    <div className="z-20 w-full shrink-0 px-3 pb-3 pt-2 md:px-6 md:pb-5">
                         <AnimatePresence>
                             {replyingTo && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 10 }}
-                                    className="mb-2 p-3 bg-[#2b2d31] rounded-2xl flex items-center justify-between"
+                                    className="mb-2 p-3 bg-card/90 border border-border/60 rounded-2xl flex items-center justify-between shadow-lg"
                                 >
-                                    <div className="flex flex-col">
+                                    <div className="flex min-w-0 flex-col">
                                         <span className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-widest mb-1">Replying to message</span>
-                                        <span className="text-sm text-foreground/90 truncate max-w-md">"{replyingTo.content}"</span>
+                                        <span className="max-w-[60vw] truncate text-sm text-foreground/90 sm:max-w-md">"{replyingTo.content}"</span>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-[#3f4148]" onClick={() => setReplyingTo(null)}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-accent" onClick={() => setReplyingTo(null)}>
                                         <X className="h-4 w-4 text-muted-foreground" />
                                     </Button>
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
-                        <div className="flex items-end gap-3 bg-[#2b2d31] rounded-2xl p-1.5 shadow-md">
+                        <div className="flex items-end gap-1.5 rounded-2xl border border-border/60 bg-card/90 p-1.5 shadow-2xl backdrop-blur-md md:gap-3">
                             <input
                                 type="file"
                                 ref={fileInputRef}
@@ -408,7 +471,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-11 w-11 shrink-0 text-muted-foreground/60 hover:text-foreground hover:bg-[#3f4148] rounded-xl transition-all mb-0.5"
+                                className="mb-0.5 hidden h-10 w-10 shrink-0 rounded-xl text-muted-foreground/60 transition-all hover:bg-accent hover:text-foreground sm:inline-flex md:h-11 md:w-11"
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isUploading}
                             >
@@ -424,11 +487,11 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                     const chatBehavior = useChatStore.getState().chatBehavior;
                                     if (e.key === 'Enter' && !e.shiftKey && chatBehavior.enterToSend) {
                                         e.preventDefault();
-                                        handleSendMessage(e as any);
+                                        void sendMessage();
                                     }
                                 }}
                                 placeholder="Type a message..."
-                                className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] font-medium text-foreground/90 placeholder:text-muted-foreground/60 px-2 py-3.5 resize-none min-h-[52px] max-h-32"
+                                className="min-h-[48px] max-h-32 flex-1 resize-none border-none bg-transparent px-2 py-3 text-sm font-medium text-foreground/90 placeholder:text-muted-foreground/60 focus:ring-0 md:min-h-[52px] md:py-3.5 md:text-[15px]"
                                 rows={1}
                                 onInput={(e) => {
                                     const target = e.target as HTMLTextAreaElement;
@@ -440,33 +503,33 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                             <div className="flex items-center gap-1 mb-0.5 shrink-0 pr-1">
                                 <div className="hidden md:flex items-center gap-1 mr-2 opacity-60">
                                     {/* Input Feature Previews (Voice + GIF) */}
-                                    <Button type="button" variant="ghost" size="icon" className="h-11 w-11 hover:text-foreground hover:bg-[#3f4148] rounded-xl transition-all cursor-not-allowed">
+                                    <Button type="button" variant="ghost" size="icon" className="h-11 w-11 hover:text-foreground hover:bg-accent rounded-xl transition-all" onClick={openGifSearch}>
                                         <span className="font-bold text-[12px] uppercase text-muted-foreground tracking-widest leading-none">GIF</span>
                                     </Button>
                                 </div>
 
                                 <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
                                     <PopoverTrigger asChild>
-                                        <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground/60 hover:text-foreground hover:bg-[#3f4148] rounded-xl transition-all">
+                                        <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground/60 hover:text-foreground hover:bg-accent rounded-xl transition-all">
                                             <Smile className="h-[22px] w-[22px]" />
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent side="top" align="end" className="p-0 border-none bg-transparent shadow-none w-auto mb-4">
                                         <EmojiPicker
                                             onEmojiClick={onEmojiClick}
-                                            theme={'dark' as any}
                                             previewConfig={{ showPreview: false }}
                                         />
                                     </PopoverContent>
                                 </Popover>
                                 <Button
+                                    type="button"
                                     onClick={handleSendMessage}
                                     disabled={!newMessage.trim() || isSending}
                                     variant="ghost"
                                     className={cn(
                                         "h-11 w-11 rounded-xl transition-all px-0 flex items-center justify-center",
                                         newMessage.trim()
-                                            ? "text-foreground hover:text-foreground hover:bg-[#3f4148]"
+                                            ? "text-foreground hover:text-foreground hover:bg-primary/10"
                                             : "text-muted-foreground/40 hover:bg-transparent cursor-default"
                                     )}
                                 >
@@ -479,7 +542,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                             <motion.div
                                 initial={{ opacity: 0, y: 5 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max text-xs text-red-400 font-semibold bg-[#2b2d31]/90 backdrop-blur-sm px-4 py-2 rounded-[100px] border border-red-500/20 shadow-lg"
+                                className="absolute bottom-full left-1/2 mb-2 w-max max-w-[90vw] -translate-x-1/2 rounded-[100px] border border-red-500/20 bg-card/95 px-4 py-2 text-center text-xs font-semibold text-red-500 shadow-lg backdrop-blur-sm"
                             >
                                 {sendError}
                             </motion.div>

@@ -6,8 +6,29 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { LucideIcon } from 'lucide-react';
+import { openOrCreateDirectChat } from '@/lib/chatActions';
 
 type FilterType = 'All' | 'Messages' | 'People' | 'Files' | 'Media';
+type SearchMetadata = { chatId: string };
+
+interface MessageSearchRecord {
+    id: string;
+    content: string;
+    created_at: string;
+    type: 'TEXT' | 'IMAGE' | 'DOCUMENT' | 'SYSTEM';
+    chat_id: string;
+    sender: {
+        username: string | null;
+    } | null;
+}
+
+interface UserSearchRecord {
+    id: string;
+    username: string;
+    avatar_url?: string | null;
+    bio?: string | null;
+}
 
 interface SearchResult {
     id: string;
@@ -16,16 +37,17 @@ interface SearchResult {
     desc: string;
     time?: string;
     avatar?: string;
-    metadata?: any;
+    metadata?: SearchMetadata;
 }
 
 export function SearchResults() {
-    const { searchQuery, setSearchOpen, setActiveChatId } = useChatStore();
+    const { searchQuery, setSearchOpen, setActiveChatId, currentUser, chats, setChats } = useChatStore();
     const [activeFilter, setActiveFilter] = useState<FilterType>('All');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
 
-    const filters: { label: FilterType; icon: any }[] = [
+    const filters: Array<{ label: FilterType; icon: LucideIcon }> = [
         { label: 'All', icon: Search },
         { label: 'Messages', icon: MessageSquare },
         { label: 'People', icon: User },
@@ -52,13 +74,13 @@ export function SearchResults() {
                         .or(`username.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
                         .limit(5);
 
-                    users?.forEach(u => {
+                    (users as UserSearchRecord[] | null)?.forEach((u) => {
                         searchResults.push({
                             id: u.id,
                             type: 'People',
                             title: u.username,
                             desc: u.bio || 'ConnectX User',
-                            avatar: u.avatar_url
+                            avatar: u.avatar_url || undefined
                         });
                     });
                 }
@@ -83,7 +105,7 @@ export function SearchResults() {
 
                     const { data: messages } = await query;
 
-                    messages?.forEach((m: any) => {
+                    (messages as MessageSearchRecord[] | null)?.forEach((m) => {
                         let type: SearchResult['type'] = 'Messages';
                         if (m.type === 'DOCUMENT') type = 'Files';
                         if (m.type === 'IMAGE') type = 'Media';
@@ -111,10 +133,28 @@ export function SearchResults() {
         return () => clearTimeout(debounceTimer);
     }, [searchQuery, activeFilter]);
 
-    const handleResultClick = (res: SearchResult) => {
+    const handleResultClick = async (res: SearchResult) => {
         if (res.type === 'People') {
-            // Ideally create or find direct chat
-            console.log("Connect to user:", res.id);
+            if (!currentUser) return;
+
+            try {
+                setActionError(null);
+                await openOrCreateDirectChat({
+                    currentUserId: currentUser.id,
+                    targetUser: {
+                        id: res.id,
+                        username: res.title,
+                        avatar_url: res.avatar,
+                    },
+                    chats,
+                    setChats,
+                    setActiveChatId,
+                });
+                setSearchOpen(false);
+            } catch (error) {
+                console.error('Failed to open chat from search:', error);
+                setActionError('Unable to open this conversation right now.');
+            }
         } else if (res.metadata?.chatId) {
             setActiveChatId(res.metadata.chatId);
             setSearchOpen(false);
@@ -129,10 +169,10 @@ export function SearchResults() {
             className="flex flex-col h-full bg-background"
         >
             {/* Header */}
-            <div className="p-6 border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-10 glass-panel">
-                <div className="flex items-center justify-between mb-6">
+            <div className="sticky top-0 z-10 border-b border-border/50 bg-card/50 p-4 backdrop-blur-xl glass-panel md:p-6">
+                <div className="mb-4 flex items-center justify-between md:mb-6">
                     <div className="flex flex-col">
-                        <h2 className="text-2xl font-bold text-foreground tracking-tight">Search Results</h2>
+                        <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">Search Results</h2>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1 space-x-1">
                             <span>Matches for</span>
                             <span className="text-primary">"{searchQuery}"</span>
@@ -147,7 +187,7 @@ export function SearchResults() {
                 </div>
 
                 {/* Filters */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
                     {filters.map((f) => (
                         <button
                             key={f.label}
@@ -168,7 +208,12 @@ export function SearchResults() {
 
             {/* Content */}
             <ScrollArea className="flex-1">
-                <div className="p-6">
+                <div className="p-4 md:p-6">
+                    {actionError && (
+                        <div className="mb-4 rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
+                            {actionError}
+                        </div>
+                    )}
                     <AnimatePresence mode="popLayout">
                         {loading ? (
                             <motion.div

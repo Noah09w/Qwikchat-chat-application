@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Sidebar } from '@/components/chat/Sidebar';
 import { ChatArea } from '@/components/chat/ChatArea';
@@ -8,12 +8,38 @@ import { useChatStore } from '@/store/chatStore';
 import { useRealtime } from '@/hooks/useRealtime';
 import { Logo } from '@/components/brand/Logo';
 import { cn } from '@/lib/utils';
+import type { Session } from '@supabase/supabase-js';
+import type { Chat } from '@/store/chatStore';
 
 import { Header } from '@/components/layout/Header';
 
+interface ChatDetailsRecord {
+    id: string;
+    type: 'DIRECT' | 'GROUP';
+    name: string | null;
+    avatar_url: string | null;
+    created_at: string;
+}
+
+interface ChatParticipantRecord {
+    chat_id: string;
+    is_archived: boolean | null;
+    is_pinned: boolean | null;
+    chats: ChatDetailsRecord | ChatDetailsRecord[] | null;
+}
+
+interface DirectChatParticipantRecord {
+    users: {
+        id: string;
+        username: string | null;
+        avatar_url: string | null;
+    } | null;
+}
+
 export default function ChatPage() {
-    const [session, setSession] = useState<any>(null);
+    const [session, setSession] = useState<Session | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const {
         setCurrentUser,
@@ -21,72 +47,60 @@ export default function ChatPage() {
         setActiveChatId,
         setChats,
         isRightSidebarOpen,
+        setRightSidebarOpen,
         isSearchOpen
     } = useChatStore();
 
     useRealtime(session?.user?.id);
 
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            if (session?.user) {
-                fetchChats(session.user.id);
-            }
-        });
+    const fetchChats = useCallback(async (userId: string) => {
+        setFetchError(null);
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            if (session?.user) {
-                fetchChats(session.user.id);
-            } else {
-                setCurrentUser(null);
-                setChats([]);
-                setActiveChatId(null);
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, [setCurrentUser, setChats, setActiveChatId]);
-
-    const fetchChats = async (userId: string) => {
         const { data, error } = await supabase
             .from('chat_participants')
             .select(`
-        chat_id,
-        is_archived,
-        is_pinned,
-        chats (
-          id,
-          type,
-          name,
-          avatar_url,
-          created_at
-        )
-      `)
+                chat_id,
+                is_archived,
+                is_pinned,
+                chats (
+                  id,
+                  type,
+                  name,
+                  avatar_url,
+                  created_at
+                )
+            `)
             .eq('user_id', userId);
 
         if (error) {
-            console.error("Error fetching chats:", error);
+            console.error('Error fetching chats:', error);
             setFetchError('Failed to load chats. Please check your connection and try refreshing.');
             return;
         }
 
-        if (data) {
-            const formattedChats = await Promise.all(data.map(async (cp: any) => {
-                const chat = cp.chats;
+        const chatParticipants = (data ?? []) as ChatParticipantRecord[];
+        const formattedChats = await Promise.all(
+            chatParticipants.map(async (cp): Promise<Chat | null> => {
+                const chat = Array.isArray(cp.chats) ? cp.chats[0] : cp.chats;
+                if (!chat) {
+                    return null;
+                }
+
                 let name = chat.name;
                 let avatar = chat.avatar_url;
+                let participantUserId: string | undefined;
 
                 if (chat.type === 'DIRECT') {
                     const { data: otherUserCp } = await supabase
                         .from('chat_participants')
-                        .select('users(username, avatar_url)')
+                        .select('users(id, username, avatar_url)')
                         .eq('chat_id', chat.id)
                         .neq('user_id', userId)
-                        .single();
+                        .maybeSingle();
 
-                    if (otherUserCp?.users && !Array.isArray(otherUserCp.users)) {
-                        const otherUser = otherUserCp.users as any;
+                    const otherUser = (otherUserCp as DirectChatParticipantRecord | null)?.users;
+                    if (otherUser) {
+                        participantUserId = otherUser.id;
                         name = otherUser.username;
                         avatar = otherUser.avatar_url;
                     }
@@ -96,29 +110,81 @@ export default function ChatPage() {
                     id: chat.id,
                     type: chat.type,
                     name: name || 'Unknown Chat',
-                    avatar_url: avatar,
+                    avatar_url: avatar || undefined,
                     created_at: chat.created_at,
                     lastMessage: 'Tap to view messages...',
                     time: new Date(chat.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     is_archived: cp.is_archived || false,
                     is_pinned: cp.is_pinned || false,
+                    participant_user_id: participantUserId,
                 };
-            }));
+            })
+        );
 
-            setChats(formattedChats);
+        const nextChats = formattedChats.filter((chat): chat is Chat => chat !== null);
+        setChats(nextChats);
 
-            if (formattedChats.length > 0 && !activeChatId) {
-                setActiveChatId(formattedChats[0].id);
-            }
+        if (nextChats.length === 0) {
+            setActiveChatId(null);
+            return;
         }
-    };
+
+        if (!activeChatId || !nextChats.some((chat) => chat.id === activeChatId)) {
+            setActiveChatId(nextChats[0].id);
+        }
+    }, [activeChatId, setActiveChatId, setChats]);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    useEffect(() => {
+        if (!isMobile) {
+            setIsSidebarOpen(false);
+            return;
+        }
+        if (!activeChatId) {
+            setIsSidebarOpen(true);
+        }
+    }, [activeChatId, isMobile]);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session }, error }) => {
+            if (error) {
+                console.error('Session error:', error.message);
+                supabase.auth.signOut();
+            }
+            setSession(session);
+            if (session?.user && !error) {
+                fetchChats(session.user.id);
+            }
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
+                setSession(null);
+                setCurrentUser(null);
+                setChats([]);
+                setActiveChatId(null);
+            } else {
+                setSession(session);
+                if (session?.user) {
+                    fetchChats(session.user.id);
+                }
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [fetchChats, setActiveChatId, setChats, setCurrentUser]);
 
     if (!session) return null;
 
     return (
-        <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden">
+        <div className="app-theme-shell flex flex-col h-screen w-full bg-background text-foreground overflow-hidden">
             {/* -- Global Header -- */}
-            <Header />
+            <Header onMobileChatsClick={() => setIsSidebarOpen(true)} />
 
             <div className="flex flex-1 overflow-hidden relative">
                 {/* -- Mobile Sidebar Overlay -- */}
@@ -131,10 +197,10 @@ export default function ChatPage() {
 
                 {/* -- Sidebar -- */}
                 <div className={cn(
-                    "fixed inset-y-0 left-0 z-50 md:relative md:translate-x-0 transition-transform duration-300 ease-in-out h-full border-r border-border/50",
-                    isSidebarOpen ? "translate-x-0 outline-none" : "-translate-x-full"
+                    "fixed inset-y-0 left-0 z-50 h-full border-r border-border/50 transition-transform duration-300 ease-in-out md:relative md:inset-auto md:z-10 md:translate-x-0",
+                    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
                 )}>
-                    <Sidebar />
+                    <Sidebar onChatSelected={() => { if (isMobile) setIsSidebarOpen(false); }} />
                 </div>
 
                 <main className="flex-1 min-w-0 bg-background flex relative overflow-hidden h-full">
@@ -168,6 +234,12 @@ export default function ChatPage() {
                                 <ChatArea currentUserId={session.user.id} activeChatId={activeChatId} />
                             </div>
                             {isRightSidebarOpen && <RightSidebar />}
+                            {isMobile && isRightSidebarOpen && (
+                                <div
+                                    className="fixed inset-0 z-40 bg-black/45 md:hidden"
+                                    onClick={() => setRightSidebarOpen(false)}
+                                />
+                            )}
                         </>
                     ) : (
                         <div className="flex-1 flex h-full items-center justify-center bg-background px-6">

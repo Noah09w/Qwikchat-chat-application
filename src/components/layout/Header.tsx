@@ -1,4 +1,4 @@
-import { Search, Bell, Settings, Plus, X, Command } from 'lucide-react';
+import { Search, Bell, Settings, Plus, X, Command, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { CreateChatModal } from '@/components/chat/CreateChatModal';
 import { motion } from 'framer-motion';
 
-export function Header() {
+export function Header({ onMobileChatsClick }: { onMobileChatsClick?: () => void }) {
     const {
         currentUser,
         searchQuery,
@@ -18,10 +18,24 @@ export function Header() {
     const navigate = useNavigate();
 
     return (
-        <header className="h-16 md:h-[var(--header-height)] w-full glass-panel flex items-center justify-between px-6 z-30 shrink-0">
+        <header className="glass-panel z-30 flex h-16 w-full shrink-0 items-center justify-between px-3 shadow-lg sm:px-4 md:h-[var(--header-height)] md:px-6">
             {/* Logo */}
-            <div className="flex items-center gap-4">
-                <Logo />
+            <div className="flex items-center gap-2 md:gap-4">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-xl text-muted-foreground md:hidden"
+                    onClick={onMobileChatsClick}
+                    aria-label="Open chats"
+                >
+                    <Menu className="h-5 w-5" />
+                </Button>
+                <div className="md:hidden">
+                    <Logo showText={false} />
+                </div>
+                <div className="hidden md:block">
+                    <Logo />
+                </div>
             </div>
 
             {/* Global Search */}
@@ -40,7 +54,7 @@ export function Header() {
                         onFocus={() => {
                             if (searchQuery.length > 0) setSearchOpen(true);
                         }}
-                        className="w-full bg-background/50 border-border focus-visible:ring-primary/20 h-11 pl-12 pr-12 rounded-xl text-sm text-foreground placeholder:text-muted-foreground transition-all shadow-inner"
+                        className="w-full bg-card/75 border-border/70 focus-visible:ring-primary/20 h-11 pl-12 pr-12 rounded-xl text-sm text-foreground placeholder:text-muted-foreground transition-all shadow-inner backdrop-blur-md"
                     />
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         {searchQuery ? (
@@ -64,7 +78,25 @@ export function Header() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-2 sm:gap-5">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-xl text-muted-foreground sm:hidden"
+                    onClick={() => setSearchOpen(true)}
+                    aria-label="Search"
+                >
+                    <Search className="h-5 w-5" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-xl text-muted-foreground sm:hidden"
+                    onClick={() => navigate('/settings?tab=notifications')}
+                    aria-label="Notifications"
+                >
+                    <Bell className="h-5 w-5" />
+                </Button>
                 <div className="hidden sm:flex items-center gap-4 pr-6 border-r border-border">
                     <CreateChatModal>
                         <motion.button
@@ -77,7 +109,12 @@ export function Header() {
                         </motion.button>
                     </CreateChatModal>
 
-                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-muted relative text-muted-foreground hover:text-foreground transition-all">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 rounded-xl hover:bg-muted relative text-muted-foreground hover:text-foreground transition-all"
+                        onClick={() => navigate('/settings?tab=notifications')}
+                    >
                         <Bell className="h-5 w-5" />
                         <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-primary border-2 border-card shadow-sm" />
                     </Button>
@@ -95,7 +132,7 @@ export function Header() {
                 {/* Profile */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
-                    className="p-1 h-auto rounded-xl hover:bg-muted flex items-center gap-3 group transition-all"
+                    className="p-1 h-auto rounded-xl hover:bg-accent/70 flex items-center gap-3 group transition-all"
                     onClick={() => navigate('/settings')}
                 >
                     <div className="relative">
@@ -105,7 +142,7 @@ export function Header() {
                                 {currentUser?.username?.substring(0, 2).toUpperCase() || '??'}
                             </AvatarFallback>
                         </Avatar>
-                        <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-background shadow-sm" />
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary border-2 border-background shadow-sm" />
                     </div>
                 </motion.button>
             </div>

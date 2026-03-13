@@ -59,18 +59,26 @@ function App() {
       }
     };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Auth session error:', error.message);
+        supabase.auth.signOut(); // Clear invalid tokens from local storage
+      }
       setSession(session);
-      if (session?.user) fetchProfile(session.user.id, session.user.email!);
+      if (session?.user && !error) fetchProfile(session.user.id, session.user.email!);
       setLoading(false);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) fetchProfile(session.user.id, session.user.email!);
-      else useChatStore.getState().setCurrentUser(null);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        useChatStore.getState().setCurrentUser(null);
+      } else {
+        setSession(session);
+        if (session?.user) fetchProfile(session.user.id, session.user.email!);
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -1,20 +1,123 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+    ArrowLeft,
+    Bell,
+    Check,
+    ChevronRight,
+    KeyRound,
+    Loader2,
+    LogOut,
+    MessageCircle,
+    Moon,
+    Trash2,
+    User,
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
+import { useChatStore } from '@/store/chatStore';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, User, Shield, Moon, LogOut, KeyRound, Bell, MessageCircle, Languages, ChevronRight, Check, Sparkles, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { useNavigate } from 'react-router-dom';
-import { useChatStore } from '@/store/chatStore';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/Logo';
 import { AvatarSelector } from '@/components/chat/AvatarSelector';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { motion, AnimatePresence } from 'framer-motion';
+import type { ChatState } from '@/store/chatStore';
+import type { LucideIcon } from 'lucide-react';
+
+type SettingsTab = 'profile' | 'account' | 'appearance' | 'notifications' | 'chat';
+type ThemeOption = ChatState['theme'];
+type BubbleStyle = ChatState['appearanceSettings']['bubbleStyle'];
+
+interface SettingsNavItem {
+    key: SettingsTab;
+    icon: LucideIcon;
+    title: string;
+    description: string;
+}
+
+function getRequestedTab(tab: string | null): SettingsTab | null {
+    if (tab && ['profile', 'account', 'appearance', 'notifications', 'chat'].includes(tab)) {
+        return tab as SettingsTab;
+    }
+    return null;
+}
+
+function SectionShell({
+    eyebrow,
+    title,
+    description,
+    children,
+    aside,
+}: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    children: React.ReactNode;
+    aside?: React.ReactNode;
+}) {
+    return (
+        <section className="rounded-[28px] border border-border/70 bg-card/80 p-6 md:p-8 shadow-[0_24px_80px_-42px_rgba(30,32,34,0.45)] backdrop-blur-xl">
+            <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="space-y-2">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground">{eyebrow}</p>
+                    <div className="space-y-1">
+                        <h2 className="text-2xl font-bold tracking-tight text-foreground">{title}</h2>
+                        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
+                    </div>
+                </div>
+                {aside}
+            </div>
+            <div className="space-y-5">{children}</div>
+        </section>
+    );
+}
+
+function SurfaceCard({ className, children }: { className?: string; children: React.ReactNode }) {
+    return (
+        <div className={cn('rounded-3xl border border-border/70 bg-background/70 p-5 shadow-sm', className)}>
+            {children}
+        </div>
+    );
+}
+
+function ToggleRow({
+    title,
+    description,
+    enabled,
+    onToggle,
+}: {
+    title: string;
+    description: string;
+    enabled: boolean;
+    onToggle: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onToggle}
+            className="flex w-full items-center justify-between gap-4 rounded-2xl border border-border/60 bg-background/75 px-4 py-4 text-left transition-all hover:border-primary/30 hover:bg-background"
+        >
+            <div className="space-y-1">
+                <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>
+                <p className="text-sm leading-5 text-muted-foreground">{description}</p>
+            </div>
+            <div className={cn('relative h-7 w-12 rounded-full border p-1 transition-all', enabled ? 'border-primary bg-primary' : 'border-border bg-secondary')}>
+                <motion.div
+                    animate={{ x: enabled ? 20 : 0 }}
+                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                    className="h-5 w-5 rounded-full bg-white shadow-sm"
+                />
+            </div>
+        </button>
+    );
+}
 
 export function SettingsPage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const {
         currentUser,
         setCurrentUser,
@@ -25,107 +128,79 @@ export function SettingsPage() {
         chatBehavior,
         setChatBehavior,
         appearanceSettings,
-        setAppearanceSettings
+        setAppearanceSettings,
     } = useChatStore();
-    const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'privacy' | 'appearance' | 'notifications' | 'chat' | 'language' | null>('profile');
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-    // Profile state
+    const [selectedTab, setSelectedTab] = useState<SettingsTab>('profile');
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const activeTab = getRequestedTab(searchParams.get('tab')) ?? selectedTab;
+
     const [avatarUrl, setAvatarUrl] = useState('');
     const [username, setUsername] = useState('');
     const [bio, setBio] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveMsg, setSaveMsg] = useState('');
-
-    // Account state
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordMsg, setPasswordMsg] = useState('');
-
-    // Privacy state
-    const [readReceipts, setReadReceipts] = useState(true);
-    const [lastSeen, setLastSeen] = useState(true);
-
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        const onResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
     }, []);
 
     useEffect(() => {
-        if (currentUser) {
-            setAvatarUrl(currentUser.avatar_url || '');
-            setUsername(currentUser.username || '');
-            setBio(currentUser.bio || '');
-            setReadReceipts(currentUser.privacy_read_receipts !== false);
-            setLastSeen(currentUser.privacy_last_seen !== false);
-        }
+        if (!currentUser) return;
+        setAvatarUrl(currentUser.avatar_url || '');
+        setUsername(currentUser.username || '');
+        setBio(currentUser.bio || '');
     }, [currentUser]);
 
-    const handleSaveProfile = async () => {
+    const navItems: SettingsNavItem[] = useMemo(() => [
+        { key: 'profile', icon: User, title: 'Profile', description: 'Identity, avatar, public bio' },
+        { key: 'account', icon: KeyRound, title: 'Account', description: 'Password and session controls' },
+        { key: 'notifications', icon: Bell, title: 'Notifications', description: 'Desktop, sound and previews' },
+        { key: 'chat', icon: MessageCircle, title: 'Chat Behavior', description: 'Input, text size and downloads' },
+        { key: 'appearance', icon: Moon, title: 'Appearance', description: 'Theme, bubbles and interface tone' },
+    ], []);
+
+    const saveProfile = async () => {
         if (!currentUser) return;
         setSaving(true);
         setSaveMsg('');
-        const { error } = await supabase
-            .from('users')
-            .update({ avatar_url: avatarUrl, username, bio })
-            .eq('id', currentUser.id);
-
-        if (!error) {
-            setCurrentUser({
-                ...currentUser,
-                avatar_url: avatarUrl,
-                username,
-                bio
-            });
-            setSaveMsg('Profile updated successfully');
+        const { error } = await supabase.from('users').update({ avatar_url: avatarUrl, username, bio }).eq('id', currentUser.id);
+        if (error) {
+            setSaveMsg(`Update failed: ${error.message}`);
         } else {
-            setSaveMsg('Update failed: ' + error.message);
+            setCurrentUser({ ...currentUser, avatar_url: avatarUrl, username, bio });
+            setSaveMsg('Profile updated successfully');
         }
         setSaving(false);
-        setTimeout(() => setSaveMsg(''), 3000);
+        window.setTimeout(() => setSaveMsg(''), 3000);
     };
 
-    const handleChangePassword = async () => {
+    const changePassword = async () => {
         setPasswordMsg('');
         if (newPassword.length < 6) {
-            setPasswordMsg('Password too short (min 6 chars)');
+            setPasswordMsg('Password must be at least 6 characters.');
             return;
         }
         if (newPassword !== confirmPassword) {
-            setPasswordMsg('Passwords do not match');
+            setPasswordMsg('Passwords do not match.');
             return;
         }
         const { error } = await supabase.auth.updateUser({ password: newPassword });
-        setPasswordMsg(error ? error.message : 'Password updated successfully');
-        setNewPassword('');
-        setConfirmPassword('');
+        setPasswordMsg(error ? error.message : 'Password updated successfully.');
+        if (!error) {
+            setNewPassword('');
+            setConfirmPassword('');
+        }
     };
 
     const handleDeleteAccount = async () => {
-        if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) return;
+        if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) return;
         await supabase.from('users').delete().eq('id', currentUser?.id);
         await supabase.auth.signOut();
-    };
-
-    const handleSavePrivacy = async () => {
-        if (!currentUser) return;
-        const { error } = await supabase
-            .from('users')
-            .update({ privacy_read_receipts: readReceipts, privacy_last_seen: lastSeen })
-            .eq('id', currentUser.id);
-
-        if (!error) {
-            setCurrentUser({
-                ...currentUser,
-                privacy_read_receipts: readReceipts,
-                privacy_last_seen: lastSeen
-            });
-            setSaveMsg('Privacy settings updated');
-        } else {
-            setSaveMsg('Failed to update privacy settings');
-        }
-        setTimeout(() => setSaveMsg(''), 3000);
     };
 
     const handleLogout = async () => {
@@ -133,541 +208,262 @@ export function SettingsPage() {
         navigate('/');
     };
 
-    const menuCategories = [
-        {
-            title: 'Identity',
-            items: [
-                { key: 'profile', icon: User, label: 'Active Account', desc: 'Avatar, Name & Bio' },
-            ]
-        },
-        {
-            title: 'Privacy & Security',
-            items: [
-                { key: 'account', icon: KeyRound, label: 'Security', desc: 'Password & Authentication' },
-                { key: 'privacy', icon: Shield, label: 'Privacy & Permissions', desc: 'Control your visibility' },
-            ]
-        },
-        {
-            title: 'Experience',
-            items: [
-                { key: 'notifications', icon: Bell, label: 'Notifications', desc: 'Manage your alerts' },
-                { key: 'chat', icon: MessageCircle, label: 'Chat Behavior', desc: 'App-wide preferences' },
-                { key: 'appearance', icon: Moon, label: 'Appearance', desc: 'Theme & Customization' },
-                { key: 'language', icon: Languages, label: 'Interface Language', desc: 'Choose your language' },
-            ]
-        }
+    const themeCards: Array<{ id: ThemeOption; title: string; caption: string }> = [
+        { id: 'light', title: 'Light', caption: 'Bright workspace surfaces' },
+        { id: 'dark', title: 'Dark', caption: 'Low-glare professional contrast' },
+        { id: 'system', title: 'System', caption: 'Follow device appearance' },
+    ];
+
+    const bubbleCards: Array<{ id: BubbleStyle; title: string; preview: string }> = [
+        { id: 'modern', title: 'Modern', preview: 'Rounded, elevated bubbles' },
+        { id: 'compact', title: 'Compact', preview: 'Tighter, dense message layout' },
+        { id: 'classic', title: 'Classic', preview: 'Traditional conversation feel' },
     ];
 
     return (
-        <div className="flex h-screen w-full bg-background flex-col text-foreground overflow-hidden">
-            {/* Header */}
-            <header className="flex h-16 md:h-[var(--header-height)] items-center px-6 glass-panel z-20 shrink-0">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                        if (isMobile && activeTab) {
-                            setActiveTab(null);
-                        } else {
-                            navigate('/chat');
-                        }
-                    }}
-                    className="mr-4 h-10 w-10 rounded-xl hover:bg-muted transition-all border border-border text-muted-foreground hover:text-foreground"
-                >
+        <div className="app-theme-shell flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
+            <header className="glass-panel flex h-16 items-center px-4 md:h-[var(--header-height)] md:px-6">
+                <Button variant="ghost" size="icon" onClick={() => navigate('/chat')} className="mr-3 h-10 w-10 rounded-2xl border border-border/70 bg-card/70 text-muted-foreground hover:bg-accent hover:text-foreground">
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <div className="flex items-center gap-4">
-                    {(!isMobile || !activeTab) && <Logo showText={true} />}
-                    {isMobile && activeTab && (
-                        <motion.h1
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="text-xs font-bold text-foreground tracking-tight uppercase"
-                        >
-                            {activeTab}
-                        </motion.h1>
-                    )}
-                    {!isMobile && (
-                        <>
-                            <div className="h-6 w-px bg-border" />
-                            <div className="flex flex-col">
-                                <h1 className="text-sm font-bold text-foreground tracking-tight leading-none mb-1">Account Settings</h1>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Professional Messenger Configuration</p>
-                            </div>
-                        </>
-                    )}
+                <div className="flex min-w-0 items-center gap-4">
+                    <Logo showText={!isMobile} />
+                    <div className="hidden h-7 w-px bg-border lg:block" />
+                    <div className="hidden lg:block">
+                        <p className="text-sm font-bold tracking-tight text-foreground">Settings</p>
+                        <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Workspace preferences and account controls</p>
+                    </div>
                 </div>
             </header>
 
-            <div className="flex flex-1 overflow-hidden relative">
-                {/* Settings Sidebar */}
-                <aside className={cn(
-                    "w-full md:w-80 bg-card border-r border-border p-6 shrink-0 flex flex-col transition-all duration-300 z-10",
-                    isMobile && activeTab ? "-translate-x-full opacity-0" : "translate-x-0 opacity-100"
-                )}>
-                    <div className="mb-8">
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-background/40 rounded-2xl p-4 flex items-center gap-4 border border-border/50 premium-shadow"
-                        >
-                            <div className="relative">
-                                <Avatar className="h-12 w-12 border border-border shadow-sm">
-                                    <AvatarImage src={currentUser?.avatar_url} />
-                                    <AvatarFallback className="bg-primary text-primary-foreground font-bold">{currentUser?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                                <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-background shadow-sm" />
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+                <aside className="hidden w-[340px] shrink-0 border-r border-border/70 bg-card/70 px-5 py-6 backdrop-blur-xl lg:flex lg:flex-col">
+                    <div className="mb-6 rounded-[28px] border border-border/70 bg-background/70 p-5 shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <Avatar className="h-14 w-14 border border-border/70 shadow-sm">
+                                <AvatarImage src={currentUser?.avatar_url} />
+                                <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+                                    {currentUser?.username?.substring(0, 2).toUpperCase() || 'QC'}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                                <p className="truncate text-base font-bold tracking-tight text-foreground">{currentUser?.username || 'Anonymous'}</p>
+                                <p className="truncate text-sm text-muted-foreground">{currentUser?.email}</p>
                             </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="font-bold text-sm truncate text-foreground tracking-tight leading-none mb-1">{currentUser?.username}</span>
-                                <span className="text-[10px] font-medium text-muted-foreground truncate opacity-70">{currentUser?.email}</span>
-                            </div>
-                        </motion.div>
+                        </div>
                     </div>
 
-                    <ScrollArea className="flex-1 -mx-2 px-2">
-                        <div className="space-y-6 pb-8">
-                            {menuCategories.map((category, catIdx) => (
-                                <div key={category.title} className="space-y-2">
-                                    <h3 className="px-4 text-[9px] font-bold text-muted-foreground uppercase tracking-[0.25em] opacity-60">
-                                        {category.title}
-                                    </h3>
-                                    <div className="space-y-1">
-                                        {category.items.map((item, idx) => (
-                                            <motion.button
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: (catIdx * 2 + idx) * 0.03 }}
-                                                key={item.key}
-                                                className={cn(
-                                                    "w-full flex items-center justify-between p-3 rounded-xl transition-all text-left group border border-transparent",
-                                                    activeTab === item.key
-                                                        ? "bg-primary/10 border-primary/10 premium-shadow"
-                                                        : "hover:bg-muted/50"
-                                                )}
-                                                onClick={() => setActiveTab(item.key as any)}
-                                            >
-                                                <div className="flex items-center gap-3.5 z-10">
-                                                    <div className={cn(
-                                                        "h-10 w-10 rounded-xl flex items-center justify-center transition-all shrink-0 premium-shadow",
-                                                        activeTab === item.key ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground group-hover:bg-muted group-hover:text-foreground border border-border/50"
-                                                    )}>
-                                                        <item.icon className="h-4.5 w-4.5" />
-                                                    </div>
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className={cn(
-                                                            "text-[13px] font-bold transition-colors tracking-tight",
-                                                            activeTab === item.key ? "text-foreground" : "text-foreground/80 group-hover:text-foreground"
-                                                        )}>{item.label}</span>
-                                                        <span className="text-[9px] font-medium text-muted-foreground/60 uppercase tracking-wider">{item.desc}</span>
-                                                    </div>
-                                                </div>
-                                                <ChevronRight className={cn(
-                                                    "h-3.5 w-3.5 text-muted-foreground transition-all z-10 opacity-0 group-hover:opacity-100",
-                                                    activeTab === item.key ? "translate-x-1 opacity-100 text-primary" : ""
-                                                )} />
-                                            </motion.button>
-                                        ))}
+                    <ScrollArea className="flex-1">
+                        <div className="space-y-2 pr-3">
+                            {navItems.map((item) => (
+                                <button
+                                    key={item.key}
+                                    type="button"
+                                    onClick={() => setSelectedTab(item.key)}
+                                    className={cn(
+                                        'flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition-all',
+                                        activeTab === item.key ? 'border-primary/30 bg-primary/10 shadow-sm' : 'border-transparent hover:border-border/70 hover:bg-background/70'
+                                    )}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl border', activeTab === item.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border/70 bg-card text-muted-foreground')}>
+                                            <item.icon className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold tracking-tight text-foreground">{item.title}</p>
+                                            <p className="text-xs text-muted-foreground">{item.description}</p>
+                                        </div>
                                     </div>
-                                </div>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                </button>
                             ))}
                         </div>
                     </ScrollArea>
 
-                    <div className="pt-6 mt-auto border-t border-border">
-                        <Button
-                            variant="ghost"
-                            className="w-full justify-start h-12 rounded-xl font-semibold text-xs gap-4 text-destructive hover:bg-destructive/10"
-                            onClick={handleLogout}
-                        >
-                            <LogOut className="h-4 w-4" />
-                            Logout
-                        </Button>
-                    </div>
+                    <Button variant="ghost" onClick={handleLogout} className="mt-5 h-12 justify-start rounded-2xl border border-destructive/20 bg-destructive/5 px-4 text-sm font-semibold text-destructive hover:bg-destructive/10">
+                        <LogOut className="h-4 w-4" />
+                        Logout
+                    </Button>
                 </aside>
 
-                {/* Settings Content */}
-                <main className={cn(
-                    "flex-1 p-6 md:p-12 overflow-y-auto w-full relative transition-all duration-300 bg-background",
-                    isMobile && !activeTab ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"
-                )}>
-                    <AnimatePresence mode="wait">
-                        {activeTab ? (
-                            <motion.div
-                                key={activeTab}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="max-w-xl mx-auto space-y-8"
-                            >
-                                {/* PROFILE */}
-                                {activeTab === 'profile' && (
-                                    <div className="space-y-8">
-                                        <div className="flex flex-col gap-1.5 mb-2">
-                                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Active Account</h2>
-                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Identity & Personalization</p>
-                                        </div>
+                <main className="min-w-0 flex-1 overflow-hidden">
+                    <ScrollArea className="h-full">
+                        <div className="mx-auto w-full max-w-6xl px-4 py-5 md:px-6 md:py-8">
+                            <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-1 lg:hidden">
+                                {navItems.map((item) => (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        onClick={() => setSelectedTab(item.key)}
+                                        className={cn('shrink-0 rounded-2xl border px-4 py-2.5 text-sm font-semibold', activeTab === item.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border/70 bg-card/80 text-foreground')}
+                                    >
+                                        {item.title}
+                                    </button>
+                                ))}
+                            </div>
 
-                                        <div className="flex flex-col items-center justify-center p-10 bg-card rounded-2xl border border-border/50 premium-shadow relative overflow-hidden group">
-                                            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                            <AvatarSelector
-                                                currentAvatar={avatarUrl}
-                                                onSelect={setAvatarUrl}
-                                                username={username}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-6">
-                                            <div className="bg-card rounded-2xl border border-border/50 p-8 space-y-6 premium-shadow">
-                                                <div className="space-y-2.5">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 opacity-70">Display Name</Label>
-                                                    <div className="relative group">
-                                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 font-bold">@</span>
-                                                        <Input
-                                                            value={username}
-                                                            onChange={e => setUsername(e.target.value)}
-                                                            className="h-12 pl-10 rounded-xl bg-background/50 border-border focus-visible:ring-primary/20 text-foreground font-bold text-sm transition-all shadow-inner"
-                                                            placeholder="preferred_name"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2.5">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 opacity-70">Professional Bio</Label>
-                                                    <textarea
-                                                        value={bio}
-                                                        onChange={e => setBio(e.target.value)}
-                                                        className="flex w-full rounded-xl border border-border bg-background/50 px-4 py-3 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[120px] resize-none transition-all placeholder:text-muted-foreground/40 shadow-inner"
-                                                        placeholder="Briefly describe your role or expertise..."
-                                                    />
-                                                </div>
-
-                                                <div className="flex items-center gap-4 pt-2">
-                                                    <Button
-                                                        onClick={handleSaveProfile}
-                                                        disabled={saving}
-                                                        className="h-11 rounded-xl px-10 bg-primary text-primary-foreground font-bold transition-all premium-shadow border border-primary/20 hover:scale-[1.02] active:scale-[0.98]"
-                                                    >
-                                                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}
-                                                    </Button>
-                                                    {saveMsg && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, x: -5 }}
-                                                            animate={{ opacity: 1, x: 0 }}
-                                                            className="flex items-center gap-2 text-green-500/80"
-                                                        >
-                                                            <Check className="h-4 w-4" />
-                                                            <span className="text-[11px] font-bold uppercase tracking-wider">{saveMsg}</span>
-                                                        </motion.div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* ACCOUNT / SECURITY */}
-                                {activeTab === 'account' && (
-                                    <div className="space-y-8">
-                                        <div className="flex flex-col gap-1.5 mb-2">
-                                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Security & Passwords</h2>
-                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Authentication settings</p>
-                                        </div>
-                                        <div className="bg-card rounded-2xl border border-border/50 p-8 space-y-6 premium-shadow">
-                                            <div className="space-y-2.5">
-                                                <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 opacity-70">New Password</Label>
-                                                <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="h-11 rounded-xl bg-background/50 border-border text-foreground text-sm font-bold focus-visible:ring-primary/20 shadow-inner" placeholder="••••••••" />
-                                            </div>
-                                            <div className="space-y-2.5">
-                                                <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1 opacity-70">Confirm New Password</Label>
-                                                <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="h-11 rounded-xl bg-background/50 border-border text-foreground text-sm font-bold focus-visible:ring-primary/20 shadow-inner" placeholder="••••••••" />
-                                            </div>
-                                            <div className="flex items-center gap-4 pt-2">
-                                                <Button onClick={handleChangePassword} className="h-11 rounded-xl px-10 bg-primary text-primary-foreground font-bold transition-all premium-shadow border border-primary/20 hover:scale-[1.02] active:scale-[0.98]">Update Password</Button>
-                                                {passwordMsg && <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider animate-in">{passwordMsg}</span>}
-                                            </div>
-                                        </div>
-
-                                        <div className="rounded-2xl border border-destructive/10 bg-destructive/[0.02] p-8 space-y-4 premium-shadow">
-                                            <div className="space-y-1.5">
-                                                <h4 className="text-[10px] font-bold text-destructive uppercase tracking-widest opacity-80">Danger Zone</h4>
-                                                <p className="text-[12px] font-semibold text-foreground/70">Permanently remove your account and all associated data. This action is irreversible.</p>
-                                            </div>
-                                            <Button variant="outline" onClick={handleDeleteAccount} className="h-10 rounded-xl border-destructive/20 text-destructive hover:bg-destructive hover:text-white font-bold px-8 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                                                Delete Account
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* PRIVACY */}
-                                {activeTab === 'privacy' && (
-                                    <div className="space-y-8">
-                                        <div className="flex flex-col gap-1.5 mb-2">
-                                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Privacy & Permissions</h2>
-                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Visibility & interaction controls</p>
-                                        </div>
-                                        <div className="bg-card rounded-2xl border border-border/50 p-2 space-y-1 overflow-hidden premium-shadow">
-                                            {[
-                                                { label: 'Read Receipts', desc: 'Let others know when you\'ve read their messages.', state: readReceipts, set: setReadReceipts, icon: MessageCircle },
-                                                { label: 'Activity Status', desc: 'Allow others to see when you were last active.', state: lastSeen, set: setLastSeen, icon: Sparkles },
-                                            ].map((item, idx) => (
-                                                <motion.button
-                                                    initial={{ opacity: 0, y: 5 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ delay: idx * 0.05 }}
-                                                    key={item.label}
-                                                    onClick={() => item.set(!item.state)}
-                                                    className="w-full flex items-center justify-between p-4 rounded-xl hover:bg-muted/30 transition-all group"
-                                                >
-                                                    <div className="flex items-center gap-4">
-                                                        <div className={cn(
-                                                            "h-11 w-11 rounded-xl flex items-center justify-center transition-all premium-shadow",
-                                                            item.state ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground border border-border/50"
-                                                        )}>
-                                                            <item.icon className="h-5 w-5" />
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <p className="font-bold text-foreground text-sm tracking-tight">{item.label}</p>
-                                                            <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">{item.desc}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className={cn(
-                                                        "h-6 w-11 rounded-full relative transition-all duration-300 p-1 ring-1 ring-border/50",
-                                                        item.state ? 'bg-primary shadow-inner shadow-black/10' : 'bg-muted/50'
-                                                    )}>
-                                                        <motion.div
-                                                            animate={{ x: item.state ? 20 : 0 }}
-                                                            className="h-4 w-4 bg-white rounded-full shadow-md"
-                                                        />
-                                                    </div>
-                                                </motion.button>
-                                            ))}
-                                        </div>
-                                        <Button onClick={handleSavePrivacy} className="h-11 w-full rounded-xl bg-primary text-primary-foreground font-bold premium-shadow border border-primary/20 hover:scale-[1.01] transition-all">
-                                            Save Privacy Settings
-                                        </Button>
-                                    </div>
-                                )}
-                                {/* APPEARANCE */}
-                                {activeTab === 'appearance' && (
-                                    <div className="space-y-8">
-                                        <div className="flex flex-col gap-1.5 mb-2">
-                                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Appearance</h2>
-                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Visual interface customization</p>
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                            {[
-                                                { id: 'light', label: 'Cool Light', desc: 'Clean & minimal', bg: 'bg-[#F0F5F9]', secondary: 'bg-[#C9D6DF]' },
-                                                { id: 'dark', label: 'Premium Slate', desc: 'Professional dark', bg: 'bg-[#1E2022]', secondary: 'bg-[#52616B]' },
-                                                { id: 'system', label: 'System Sync', desc: 'Default behavior', bg: 'bg-slate-400', secondary: 'bg-slate-500' },
-                                            ].map((t) => (
-                                                <button
-                                                    key={t.id}
-                                                    onClick={() => setTheme(t.id as any)}
-                                                    className={cn(
-                                                        "group relative flex flex-col p-5 rounded-2xl border-2 transition-all text-left bg-card premium-shadow",
-                                                        theme === t.id ? "border-primary ring-4 ring-primary/10" : "border-border/50 hover:border-primary/30"
-                                                    )}
-                                                >
-                                                    <div className={cn("h-32 w-full rounded-xl mb-4 p-4 border border-border/50 relative overflow-hidden shadow-inner", t.bg)}>
-                                                        <div className="space-y-2">
-                                                            <div className={cn("h-2 w-1/2 rounded-full", t.secondary)} />
-                                                            <div className={cn("h-2 w-3/4 rounded-full opacity-20", t.secondary)} />
-                                                            <div className="h-8 w-8 rounded-lg mt-6 bg-primary/30 premium-shadow" />
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <div>
-                                                            <p className="font-bold text-foreground text-sm tracking-tight">{t.label}</p>
-                                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{t.desc}</p>
-                                                        </div>
-                                                        {theme === t.id && (
-                                                            <motion.div
-                                                                layoutId="themeSelected"
-                                                                className="h-6 w-6 rounded-full bg-primary flex items-center justify-center premium-shadow"
-                                                            >
-                                                                <Check className="h-3 w-3 text-primary-foreground" />
-                                                            </motion.div>
-                                                        )}
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        <div className="space-y-6 pt-4">
-                                            <div className="flex flex-col gap-1.5 mb-2">
-                                                <h2 className="text-xl font-bold text-foreground tracking-tight">Bubble Styles</h2>
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Message appearance</p>
-                                            </div>
-                                            <div className="grid grid-cols-3 gap-4">
-                                                {['modern', 'compact', 'classic'].map((style) => (
-                                                    <button
-                                                        key={style}
-                                                        onClick={() => setAppearanceSettings({ bubbleStyle: style as any })}
-                                                        className={cn(
-                                                            "p-4 rounded-xl border-2 transition-all text-center bg-card premium-shadow",
-                                                            appearanceSettings.bubbleStyle === style ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/20"
-                                                        )}
-                                                    >
-                                                        <span className="text-xs font-bold capitalize">{style}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* NOTIFICATIONS */}
-                                {activeTab === 'notifications' && (
-                                    <div className="space-y-8">
-                                        <div className="flex flex-col gap-1.5 mb-2">
-                                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Notifications</h2>
-                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Manage your alerts & sounds</p>
-                                        </div>
-                                        <div className="bg-card rounded-2xl border border-border/50 p-2 space-y-1 overflow-hidden premium-shadow">
-                                            {[
-                                                { key: 'sound', label: 'Sound Alerts', desc: 'Play a sound for incoming messages', icon: Bell },
-                                                { key: 'desktop', label: 'Desktop Notifications', desc: 'Show alerts on your desktop', icon: Sparkles },
-                                                { key: 'previews', label: 'Message Previews', desc: 'Show content in notifications', icon: MessageCircle },
-                                            ].map((item) => (
-                                                <motion.button
-                                                    key={item.key}
-                                                    onClick={() => setNotifications({ [item.key]: !notifications[item.key as keyof typeof notifications] })}
-                                                    className="w-full flex items-center justify-between p-4 rounded-xl hover:bg-muted/30 transition-all group"
-                                                >
-                                                    <div className="flex items-center gap-4">
-                                                        <div className={cn(
-                                                            "h-11 w-11 rounded-xl flex items-center justify-center transition-all premium-shadow",
-                                                            notifications[item.key as keyof typeof notifications] ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground border border-border/50"
-                                                        )}>
-                                                            <item.icon className="h-5 w-5" />
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <p className="font-bold text-foreground text-sm tracking-tight">{item.label}</p>
-                                                            <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">{item.desc}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className={cn(
-                                                        "h-6 w-11 rounded-full relative transition-all duration-300 p-1 ring-1 ring-border/50",
-                                                        notifications[item.key as keyof typeof notifications] ? 'bg-primary shadow-inner shadow-black/10' : 'bg-muted/50'
-                                                    )}>
-                                                        <motion.div
-                                                            animate={{ x: notifications[item.key as keyof typeof notifications] ? 20 : 0 }}
-                                                            className="h-4 w-4 bg-white rounded-full shadow-md"
-                                                        />
-                                                    </div>
-                                                </motion.button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* CHAT BEHAVIOR */}
-                                {activeTab === 'chat' && (
-                                    <div className="space-y-8">
-                                        <div className="flex flex-col gap-1.5 mb-2">
-                                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Chat Behavior</h2>
-                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Application preferences</p>
-                                        </div>
-                                        <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-8 premium-shadow">
-                                            <div className="flex items-center justify-between">
-                                                <div className="text-left">
-                                                    <p className="font-bold text-foreground text-sm tracking-tight">Enter Key to Send</p>
-                                                    <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">Press Enter to send, Shift+Enter for new line</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => setChatBehavior({ enterToSend: !chatBehavior.enterToSend })}
-                                                    className={cn(
-                                                        "h-6 w-11 rounded-full relative transition-all duration-300 p-1 ring-1 ring-border/50",
-                                                        chatBehavior.enterToSend ? 'bg-primary shadow-inner shadow-black/10' : 'bg-muted/50'
-                                                    )}
-                                                >
-                                                    <motion.div
-                                                        animate={{ x: chatBehavior.enterToSend ? 20 : 0 }}
-                                                        className="h-4 w-4 bg-white rounded-full shadow-md"
-                                                    />
-                                                </button>
-                                            </div>
-
-                                            <div className="space-y-4">
-                                                <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-70">Font Size</Label>
-                                                <div className="flex gap-2">
-                                                    {(['small', 'medium', 'large'] as const).map((size) => (
-                                                        <Button
-                                                            key={size}
-                                                            variant={chatBehavior.fontSize === size ? "default" : "outline"}
-                                                            onClick={() => setChatBehavior({ fontSize: size })}
-                                                            className="flex-1 h-10 rounded-xl text-xs font-bold capitalize"
-                                                        >
-                                                            {size}
-                                                        </Button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center justify-between">
-                                                <div className="text-left">
-                                                    <p className="font-bold text-foreground text-sm tracking-tight">Auto-download Media</p>
-                                                    <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">Automatically save incoming images & videos</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => setChatBehavior({ autoDownload: !chatBehavior.autoDownload })}
-                                                    className={cn(
-                                                        "h-6 w-11 rounded-full relative transition-all duration-300 p-1 ring-1 ring-border/50",
-                                                        chatBehavior.autoDownload ? 'bg-primary shadow-inner shadow-black/10' : 'bg-muted/50'
-                                                    )}
-                                                >
-                                                    <motion.div
-                                                        animate={{ x: chatBehavior.autoDownload ? 20 : 0 }}
-                                                        className="h-4 w-4 bg-white rounded-full shadow-md"
-                                                    />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* LANGUAGE */}
-                                {activeTab === 'language' && (
-                                    <div className="space-y-8">
-                                        <div className="flex flex-col gap-1.5 mb-2">
-                                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Interface Language</h2>
-                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Choose your preferred language</p>
-                                        </div>
-                                        <div className="bg-card rounded-2xl border border-border/50 p-2 space-y-1 premium-shadow">
-                                            {['English', 'Spanish', 'French', 'German', 'Hindi'].map((lang, idx) => (
-                                                <button
-                                                    key={lang}
-                                                    className="w-full flex items-center justify-between p-4 rounded-xl hover:bg-muted/30 transition-all font-bold text-sm"
-                                                >
-                                                    {lang}
-                                                    {idx === 0 && <Check className="h-4 w-4 text-primary" />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.98 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="h-full flex flex-col items-center justify-center text-center py-20"
-                            >
-                                <div className="relative mb-8">
-                                    <div className="h-32 w-32 rounded-3xl bg-card border border-border flex items-center justify-center shadow-sm">
-                                        <Logo showText={false} iconClassName="h-16 w-16" />
-                                    </div>
+                            {(saveMsg || passwordMsg) && (
+                                <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-medium text-foreground">
+                                    {saveMsg || passwordMsg}
                                 </div>
-                                <h3 className="text-2xl font-bold text-foreground tracking-tight mb-2">Select a Category</h3>
-                                <p className="text-muted-foreground max-w-[280px] text-xs leading-relaxed">
-                                    Choose a setting from the sidebar to manage your account preferences and customize your experience.
-                                </p>
+                            )}
+
+                            <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-6">
+                                {activeTab === 'profile' && (
+                                    <SectionShell
+                                        eyebrow="Profile"
+                                        title="Profile and identity"
+                                        description="Manage how you appear across conversations, participant lists and profile surfaces."
+                                        aside={<Button onClick={saveProfile} disabled={saving} className="h-11 rounded-2xl px-5 font-semibold">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save profile'}</Button>}
+                                    >
+                                        <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+                                            <SurfaceCard className="flex flex-col items-center justify-center gap-5">
+                                                <AvatarSelector currentAvatar={avatarUrl} onSelect={setAvatarUrl} username={username} />
+                                                <div className="text-center">
+                                                    <p className="text-sm font-semibold text-foreground">Profile image</p>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Pick an avatar that is easy to recognize in chat.</p>
+                                                </div>
+                                            </SurfaceCard>
+                                            <SurfaceCard className="space-y-5">
+                                                <div className="space-y-2">
+                                                    <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Display name</Label>
+                                                    <Input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="preferred_name" className="h-12 rounded-2xl border-border/70 bg-card px-4 text-sm font-semibold" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Email</Label>
+                                                    <Input value={currentUser?.email || ''} readOnly className="h-12 rounded-2xl border-border/70 bg-muted/40 px-4 text-sm text-muted-foreground" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Bio</Label>
+                                                    <textarea value={bio} onChange={(event) => setBio(event.target.value)} placeholder="Add a short bio for your team and contacts." className="min-h-[140px] w-full rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm leading-6 text-foreground outline-none transition-all focus:border-primary/40 focus:ring-2 focus:ring-primary/15" />
+                                                </div>
+                                            </SurfaceCard>
+                                        </div>
+                                    </SectionShell>
+                                )}
+                                {activeTab === 'account' && (
+                                    <SectionShell eyebrow="Account" title="Account security" description="Keep access to your workspace secure with a stronger password and clear recovery expectations.">
+                                        <SurfaceCard className="space-y-5">
+                                            <div className="space-y-2">
+                                                <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">New password</Label>
+                                                <Input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="h-12 rounded-2xl border-border/70 bg-card px-4" placeholder="Minimum 6 characters" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Confirm password</Label>
+                                                <Input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="h-12 rounded-2xl border-border/70 bg-card px-4" placeholder="Repeat password" />
+                                            </div>
+                                            <Button onClick={changePassword} className="h-11 rounded-2xl px-5 font-semibold">
+                                                Update password
+                                            </Button>
+                                        </SurfaceCard>
+
+                                        <SurfaceCard className="border-destructive/20 bg-destructive/5">
+                                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="text-base font-bold tracking-tight text-destructive">Delete account</p>
+                                                    <p className="text-sm leading-6 text-destructive/80">Permanently remove your account and sign out from this workspace.</p>
+                                                </div>
+                                                <Button variant="destructive" onClick={handleDeleteAccount} className="h-11 rounded-2xl px-5 font-semibold">
+                                                    <Trash2 className="h-4 w-4" />
+                                                    Delete account
+                                                </Button>
+                                            </div>
+                                        </SurfaceCard>
+                                    </SectionShell>
+                                )}
+
+                                {activeTab === 'notifications' && (
+                                    <SectionShell eyebrow="Notifications" title="Notification preferences" description="Tune how QwikChat surfaces incoming activity across sound, desktop and preview channels.">
+                                        <div className="grid gap-4">
+                                            <ToggleRow title="Sound alerts" description="Play a notification sound when new activity arrives." enabled={notifications.sound} onToggle={() => setNotifications({ sound: !notifications.sound })} />
+                                            <ToggleRow title="Desktop notifications" description="Allow browser-level alerts when QwikChat is open in the background." enabled={notifications.desktop} onToggle={() => setNotifications({ desktop: !notifications.desktop })} />
+                                            <ToggleRow title="Message previews" description="Include the actual message content in desktop notifications." enabled={notifications.previews} onToggle={() => setNotifications({ previews: !notifications.previews })} />
+                                        </div>
+                                    </SectionShell>
+                                )}
+
+                                {activeTab === 'chat' && (
+                                    <SectionShell eyebrow="Chat" title="Chat behavior" description="Set how the composer behaves and how readable conversations feel across the app.">
+                                        <div className="grid gap-4">
+                                            <ToggleRow title="Enter to send" description="Press Enter to send a message. Use Shift+Enter for a new line." enabled={chatBehavior.enterToSend} onToggle={() => setChatBehavior({ enterToSend: !chatBehavior.enterToSend })} />
+                                        </div>
+                                        <div className="grid gap-4 lg:grid-cols-3">
+                                            {(['small', 'medium', 'large'] as const).map((size) => (
+                                                <button
+                                                    key={size}
+                                                    type="button"
+                                                    onClick={() => setChatBehavior({ fontSize: size })}
+                                                    className={cn('rounded-3xl border p-5 text-left transition-all', chatBehavior.fontSize === size ? 'border-primary bg-primary/10' : 'border-border/70 bg-background/70 hover:border-primary/30')}
+                                                >
+                                                    <p className="text-sm font-bold capitalize tracking-tight text-foreground">{size}</p>
+                                                    <p className="mt-1 text-sm text-muted-foreground">
+                                                        {size === 'small' && 'Dense conversation view with minimal visual height.'}
+                                                        {size === 'medium' && 'Balanced readability for everyday messaging.'}
+                                                        {size === 'large' && 'Larger text for comfortable scanning and long sessions.'}
+                                                    </p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </SectionShell>
+                                )}
+
+                                {activeTab === 'appearance' && (
+                                    <SectionShell eyebrow="Appearance" title="Visual style" description="Choose the overall look of the application and the message presentation style used in chat.">
+                                        <div className="grid gap-4 lg:grid-cols-3">
+                                            {themeCards.map((card) => (
+                                                <button
+                                                    key={card.id}
+                                                    type="button"
+                                                    onClick={() => setTheme(card.id)}
+                                                    className={cn('rounded-[28px] border p-5 text-left transition-all', theme === card.id ? 'border-primary bg-primary/10' : 'border-border/70 bg-background/70 hover:border-primary/30')}
+                                                >
+                                                    <div className="mb-4 flex h-28 items-end rounded-2xl border border-border/70 bg-gradient-to-br from-background via-secondary to-card p-4">
+                                                        <div className="space-y-2">
+                                                            <div className="h-2.5 w-20 rounded-full bg-primary/70" />
+                                                            <div className="h-2.5 w-28 rounded-full bg-primary/30" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div>
+                                                            <p className="text-sm font-bold tracking-tight text-foreground">{card.title}</p>
+                                                            <p className="mt-1 text-sm text-muted-foreground">{card.caption}</p>
+                                                        </div>
+                                                        {theme === card.id && (
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                                                <Check className="h-4 w-4" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div className="grid gap-4 lg:grid-cols-3">
+                                            {bubbleCards.map((card) => (
+                                                <button
+                                                    key={card.id}
+                                                    type="button"
+                                                    onClick={() => setAppearanceSettings({ bubbleStyle: card.id })}
+                                                    className={cn('rounded-[28px] border p-5 text-left transition-all', appearanceSettings.bubbleStyle === card.id ? 'border-primary bg-primary/10' : 'border-border/70 bg-background/70 hover:border-primary/30')}
+                                                >
+                                                    <div className="mb-4 space-y-2 rounded-2xl border border-border/70 bg-card p-4">
+                                                        <div className="ml-auto h-7 w-24 rounded-2xl bg-primary/70" />
+                                                        <div className="h-7 w-28 rounded-2xl bg-secondary" />
+                                                        <div className="ml-auto h-7 w-20 rounded-2xl bg-primary/40" />
+                                                    </div>
+                                                    <p className="text-sm font-bold tracking-tight text-foreground">{card.title}</p>
+                                                    <p className="mt-1 text-sm text-muted-foreground">{card.preview}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </SectionShell>
+                                )}
+
                             </motion.div>
-                        )}
-                    </AnimatePresence>
+                        </div>
+                    </ScrollArea>
                 </main>
             </div>
-        </div >
+        </div>
     );
 }

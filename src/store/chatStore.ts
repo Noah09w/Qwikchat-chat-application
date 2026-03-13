@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 
-interface User {
+export interface User {
     id: string;
     email: string;
     username: string;
@@ -17,7 +17,7 @@ interface User {
     };
 }
 
-interface Chat {
+export interface Chat {
     id: string;
     type: 'DIRECT' | 'GROUP';
     name?: string;
@@ -29,9 +29,10 @@ interface Chat {
     is_pinned?: boolean;
     is_muted?: boolean;
     is_archived?: boolean;
+    participant_user_id?: string;
 }
 
-interface Message {
+export interface Message {
     id: string;
     chat_id: string;
     sender_id: string;
@@ -46,7 +47,7 @@ interface Message {
     file_type?: string;
 }
 
-interface ChatState {
+export interface ChatState {
     currentUser: User | null;
     setCurrentUser: (user: User | null) => void;
     activeChatId: string | null;
@@ -57,8 +58,10 @@ interface ChatState {
     messages: Record<string, Message[]>;
     setMessages: (chatId: string, messages: Message[]) => void;
     addMessage: (chatId: string, message: Message) => void;
+    replaceMessage: (chatId: string, tempId: string, message: Message) => void;
+    patchMessage: (chatId: string, messageId: string, updates: Partial<Message>) => void;
     updateMessageStatus: (messageId: string, status: 'sent' | 'delivered' | 'read') => void;
-    deleteMessage: (chatId: string, messageId: string, forEveryone: boolean) => void;
+    deleteMessage: (chatId: string, messageId: string, forEveryone: boolean) => Promise<void>;
 
     onlineUsers: Set<string>;
     setOnlineUsers: (users: Set<string>) => void;
@@ -215,6 +218,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 messages: { ...state.messages, [chatId]: [...chatMessages, message] },
             };
         }),
+    replaceMessage: (chatId, tempId, message) =>
+        set((state) => {
+            const chatMessages = state.messages[chatId] || [];
+            const existingIndex = chatMessages.findIndex((m) => m.id === tempId);
+            const withoutDuplicate = chatMessages.filter((m) => m.id !== message.id);
+
+            if (existingIndex === -1) {
+                return {
+                    ...state,
+                    messages: { ...state.messages, [chatId]: [...withoutDuplicate, message] },
+                };
+            }
+
+            const updatedMessages = [...withoutDuplicate];
+            updatedMessages.splice(existingIndex, 0, message);
+
+            return {
+                ...state,
+                messages: { ...state.messages, [chatId]: updatedMessages },
+            };
+        }),
+    patchMessage: (chatId, messageId, updates) =>
+        set((state) => {
+            const chatMessages = state.messages[chatId] || [];
+            return {
+                ...state,
+                messages: {
+                    ...state.messages,
+                    [chatId]: chatMessages.map((message) =>
+                        message.id === messageId ? { ...message, ...updates } : message
+                    ),
+                },
+            };
+        }),
     updateMessageStatus: (messageId, status) =>
         set((state) => {
             const newMessages = { ...state.messages };
@@ -231,10 +268,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }),
     deleteMessage: async (chatId, messageId, forEveryone) => {
         if (forEveryone) {
-            await supabase
+            const { error } = await supabase
                 .from('messages')
                 .update({ is_deleted_for_everyone: true, content: 'Message deleted' })
                 .eq('id', messageId);
+
+            if (error) {
+                throw error;
+            }
         } else {
             // "Delete for me" is usually a local preference or a entry in a 'deleted_messages' table.
             // For now, let's just make it a local removal.

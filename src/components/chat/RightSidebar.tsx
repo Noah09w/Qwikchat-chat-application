@@ -5,9 +5,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useChatStore } from '@/store/chatStore';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 export function RightSidebar() {
-    const { activeChatId, chats, messages, setRightSidebarOpen, toggleArchive } = useChatStore();
+    const { activeChatId, chats, messages, setRightSidebarOpen, toggleArchive, notifications, setNotifications } = useChatStore();
+    const navigate = useNavigate();
     const chat = chats.find(c => c.id === activeChatId);
 
     if (!chat) return null;
@@ -15,10 +17,16 @@ export function RightSidebar() {
     const chatMessages = activeChatId ? messages[activeChatId] || [] : [];
     const mediaMessages = chatMessages.filter(m => m.type === 'IMAGE' && m.file_url);
 
+    const openReportEmail = () => {
+        const subject = encodeURIComponent(`Report conversation: ${chat.name}`);
+        const body = encodeURIComponent(`Please review conversation "${chat.name}" (chat id: ${chat.id}).`);
+        window.location.href = `mailto:support@qwikchat.app?subject=${subject}&body=${body}`;
+    };
+
     return (
-        <div className="w-[320px] h-full bg-card border-l border-border flex flex-col animate-in slide-in-from-right duration-300 z-30">
+        <div className="fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-[380px] animate-in slide-in-from-right duration-300 flex-col border-l border-border bg-card md:relative md:inset-auto md:right-auto md:z-30 md:w-[320px]">
             {/* Header */}
-            <div className="h-[var(--header-height)] flex items-center justify-between px-6 glass-panel shrink-0">
+            <div className="glass-panel flex h-16 shrink-0 items-center justify-between px-4 md:h-[var(--header-height)] md:px-6">
                 <h2 className="text-sm font-bold text-foreground tracking-tight">Contact Info</h2>
                 <Button
                     variant="ghost"
@@ -41,7 +49,7 @@ export function RightSidebar() {
                             </AvatarFallback>
                         </Avatar>
                         <h3 className="text-lg font-bold text-foreground mb-1 tracking-tight">{chat.name}</h3>
-                        <p className="text-[10px] text-green-500/80 font-bold uppercase tracking-[0.2em] leading-none">Active</p>
+                        <p className="text-[10px] text-primary/80 font-bold uppercase tracking-[0.2em] leading-none">Active</p>
                     </div>
 
                     {/* Media, Files & Links */}
@@ -70,15 +78,30 @@ export function RightSidebar() {
                     {/* Options List */}
                     <div className="space-y-1">
                         {[
-                            { icon: Bell, label: 'Mute Notifications', color: 'text-muted-foreground', action: () => { } },
+                            {
+                                icon: Bell,
+                                label: notifications.sound ? 'Mute Notification Sound' : 'Unmute Notification Sound',
+                                color: 'text-muted-foreground',
+                                action: () => setNotifications({ sound: !notifications.sound })
+                            },
                             {
                                 icon: Archive,
                                 label: chat.is_archived ? 'Unarchive Chat' : 'Archive Chat',
                                 color: 'text-muted-foreground',
                                 action: () => activeChatId && toggleArchive(activeChatId)
                             },
-                            { icon: Shield, label: 'Privacy & Permissions', color: 'text-muted-foreground', action: () => { } },
-                            { icon: Users, label: 'Shared Workspaces', color: 'text-muted-foreground', action: () => { } },
+                            {
+                                icon: Shield,
+                                label: 'Account Settings',
+                                color: 'text-muted-foreground',
+                                action: () => navigate('/settings?tab=account')
+                            },
+                            {
+                                icon: Users,
+                                label: 'Chat Preferences',
+                                color: 'text-muted-foreground',
+                                action: () => navigate('/settings?tab=chat')
+                            },
                         ].map((item, i) => (
                             <button
                                 key={i}
@@ -101,10 +124,20 @@ export function RightSidebar() {
                     {/* Danger Zone */}
                     <div className="space-y-1 pb-6">
                         {[
-                            { icon: Ban, label: 'Block User', color: 'text-destructive' },
-                            { icon: Flag, label: 'Report User', color: 'text-destructive' },
+                            {
+                                icon: Ban,
+                                label: 'Open Account Settings',
+                                color: 'text-destructive',
+                                action: () => navigate('/settings?tab=account')
+                            },
+                            {
+                                icon: Flag,
+                                label: 'Report Conversation',
+                                color: 'text-destructive',
+                                action: openReportEmail
+                            },
                         ].map((item, i) => (
-                            <button key={i} className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-destructive/10 transition-colors group">
+                            <button key={i} onClick={item.action} className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-destructive/10 transition-colors group">
                                 <div className="h-8 w-8 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-center">
                                     <item.icon className="h-4 w-4 text-destructive" />
                                 </div>

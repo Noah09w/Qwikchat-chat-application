@@ -9,18 +9,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, Plus, Loader2, Image as ImageIcon, X, Check, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import type { User } from '@/store/chatStore';
+import { openOrCreateDirectChat } from '@/lib/chatActions';
+
+type UserSearchResult = Pick<User, 'id' | 'email' | 'username' | 'avatar_url'>;
 
 export function CreateChatModal({ children }: { children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [view, setView] = useState<'DIRECT' | 'GROUP_DETAILS' | 'SELECT_MEMBERS'>('DIRECT');
     const [searchQuery, setSearchQuery] = useState('');
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<UserSearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
 
-    const [groupParticipants, setGroupParticipants] = useState<any[]>([]);
+    const [groupParticipants, setGroupParticipants] = useState<UserSearchResult[]>([]);
     const [groupName, setGroupName] = useState('');
-    const [groupIcon] = useState<string | null>(null);
+    const [groupIcon, setGroupIcon] = useState('');
 
     const { currentUser, setActiveChatId, chats, setChats } = useChatStore();
 
@@ -31,6 +35,7 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
             setResults([]);
             setGroupParticipants([]);
             setGroupName('');
+            setGroupIcon('');
         }
     }, [open]);
 
@@ -59,50 +64,17 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
         setIsCreating(true);
 
         try {
-            const { data: myChats } = await supabase.from('chat_participants').select('chat_id').eq('user_id', currentUser.id);
-            const myChatIds = myChats?.map(c => c.chat_id) || [];
-
-            if (myChatIds.length > 0) {
-                const { data: existingChat } = await supabase
-                    .from('chat_participants')
-                    .select('chat_id, chats!inner(type)')
-                    .eq('user_id', targetUserId)
-                    .eq('chats.type', 'DIRECT')
-                    .in('chat_id', myChatIds)
-                    .maybeSingle();
-
-                if (existingChat) {
-                    setActiveChatId(existingChat.chat_id);
-                    setOpen(false);
-                    return;
-                }
-            }
-
-            const { data: newChat, error: chatError } = await supabase
-                .from('chats')
-                .insert({ type: 'DIRECT', created_by: currentUser.id })
-                .select()
-                .single();
-
-            if (chatError) throw chatError;
-
-            await supabase.from('chat_participants').insert([
-                { chat_id: newChat.id, user_id: currentUser.id, role: 'ADMIN' },
-                { chat_id: newChat.id, user_id: targetUserId, role: 'MEMBER' }
-            ]);
-
-            const chatObj = {
-                id: newChat.id,
-                type: 'DIRECT' as const,
-                name: targetUsername,
-                avatar_url: targetAvatar,
-                created_at: newChat.created_at,
-                lastMessage: 'Conversation started',
-                time: 'Just now'
-            };
-
-            setChats([chatObj, ...chats]);
-            setActiveChatId(newChat.id);
+            await openOrCreateDirectChat({
+                currentUserId: currentUser.id,
+                targetUser: {
+                    id: targetUserId,
+                    username: targetUsername,
+                    avatar_url: targetAvatar,
+                },
+                chats,
+                setChats,
+                setActiveChatId,
+            });
             setOpen(false);
 
         } catch (e) {
@@ -122,7 +94,7 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
                 .insert({
                     type: 'GROUP',
                     name: groupName,
-                    avatar_url: groupIcon,
+                    avatar_url: groupIcon || null,
                     created_by: currentUser.id
                 })
                 .select()
@@ -158,7 +130,7 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const toggleParticipant = (user: any) => {
+    const toggleParticipant = (user: UserSearchResult) => {
         if (groupParticipants.find(p => p.id === user.id)) {
             setGroupParticipants(groupParticipants.filter(p => p.id !== user.id));
         } else {
@@ -336,6 +308,16 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
                                             <Plus className="h-4 w-4" />
                                         </div>
                                     </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Group Icon URL</label>
+                                    <Input
+                                        value={groupIcon}
+                                        onChange={(e) => setGroupIcon(e.target.value)}
+                                        placeholder="https://images.unsplash.com/..."
+                                        className="h-11 w-full px-4 rounded-xl bg-background border-border text-sm font-semibold text-foreground focus-visible:ring-primary/20 shadow-sm"
+                                    />
                                 </div>
 
                                 <div className="space-y-2">

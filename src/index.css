@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,81 +10,72 @@
 
 @layer base {
   :root {
-    /* Professional Palette - Light Mode: #F0F5F9, #C9D6DF, #52616B, #1E2022 */
-    --background: 207 33% 96%;
-    /* #F0F5F9 (Lightest) */
-    --foreground: 210 6% 13%;
-    /* #1E2022 (Darkest) */
+    --background: 213 57% 97%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 6% 13%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 6% 13%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 204 13% 37%;
-    /* #52616B */
-    --primary-foreground: 207 33% 96%;
+    --primary: 221 83% 56%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 205 26% 83%;
-    /* #C9D6DF */
-    --secondary-foreground: 210 6% 13%;
+    --secondary: 199 89% 48%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 205 20% 90%;
-    --muted-foreground: 204 13% 45%;
+    --muted: 214 32% 91%;
+    --muted-foreground: 215 16% 41%;
 
-    --accent: 205 26% 83%;
-    /* #C9D6DF */
-    --accent-foreground: 210 6% 13%;
+    --accent: 214 32% 91%;
+    --accent-foreground: 222 47% 11%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 205 26% 75%;
-    /* Based on #C9D6DF */
-    --input: 205 20% 94%;
-    --ring: 204 13% 37%;
+    --border: 214 32% 86%;
+    --input: 0 0% 100%;
+    --ring: 221 83% 56%;
 
     --radius: 0.6rem;
     --sidebar-width: 300px;
     --header-height: 72px;
 
     /* Semantic Status */
-    --online: 142.1 70.6% 45.3%;
-    --away: 47.9 95.8% 51.8%;
+    --online: 142 69% 45%;
+    --away: 48 96% 53%;
     --busy: 0 84.2% 60.2%;
   }
 
   .dark {
-    /* Professional Palette - Dark Mode: #1E2022, #52616B, #C9D6DF, #F0F5F9 */
-    --background: 210 6% 13%;
-    /* #1E2022 (Darkest) */
-    --foreground: 207 33% 96%;
-    /* #F0F5F9 (Lightest) */
+    --background: 223 47% 11%;
+    --foreground: 213 31% 91%;
 
-    --card: 210 6% 16%;
-    --card-foreground: 207 33% 96%;
+    --card: 222 45% 14%;
+    --card-foreground: 213 31% 91%;
 
-    --popover: 210 6% 14%;
-    --popover-foreground: 207 33% 96%;
+    --popover: 222 45% 14%;
+    --popover-foreground: 213 31% 91%;
 
-    --primary: 204 13% 37%;
-    /* #52616B */
-    --primary-foreground: 207 33% 96%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 204 13% 25%;
-    /* Darker #52616B variant */
-    --secondary-foreground: 207 33% 96%;
+    --secondary: 226 71% 40%;
+    --secondary-foreground: 213 31% 91%;
 
-    --muted: 210 6% 20%;
-    --muted-foreground: 205 15% 70%;
+    --muted: 223 37% 20%;
+    --muted-foreground: 215 20% 72%;
 
-    --accent: 210 6% 22%;
-    --accent-foreground: 207 33% 96%;
+    --accent: 223 37% 20%;
+    --accent-foreground: 213 31% 91%;
 
-    --border: 204 13% 25%;
-    --input: 210 6% 18%;
-    --ring: 204 13% 37%;
+    --border: 223 33% 25%;
+    --input: 223 37% 20%;
+    --ring: 199 89% 48%;
+
+    --online: 142 69% 45%;
+    --away: 48 96% 53%;
   }
 }
 
@@ -95,8 +86,21 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
-    background-image: none;
+    font-family: 'Manrope', sans-serif;
+    background:
+      radial-gradient(circle at top left, hsl(var(--secondary) / 0.22), transparent 32%),
+      radial-gradient(circle at top right, hsl(var(--primary) / 0.2), transparent 30%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
   }
 }
 
@@ -104,11 +108,13 @@
 
   /* Professional Surfaces */
   .glass-card {
-    @apply bg-card/60 backdrop-blur-md border border-border/50 shadow-xl;
+    @apply backdrop-blur-xl border border-border/50 shadow-xl;
+    background-color: hsl(var(--card) / 0.72);
   }
 
   .glass-panel {
-    @apply bg-background/80 backdrop-blur-lg border-b border-border/10;
+    @apply backdrop-blur-xl border-b border-border/30;
+    background-color: hsl(var(--background) / 0.72);
   }
 
   .border-subtle {
@@ -121,7 +127,7 @@
   }
 
   .premium-shadow {
-    @apply shadow-2xl ring-1 ring-border/5;
+    box-shadow: 0 24px 80px -32px hsl(var(--foreground) / 0.38);
   }
 
   /* Animated Micro-interactions */
@@ -154,13 +160,13 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(82, 97, 107, 0.3);
+    background: hsl(var(--primary) / 0.35);
     border-radius: 10px;
     transition: background 0.2s;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(82, 97, 107, 0.5);
+    background: hsl(var(--primary) / 0.55);
   }
 
   /* Chat Specific */
@@ -180,10 +186,17 @@
     }
   }
 
-  /* Removed specific gradients and pulse effects */
   .auth-gradient {
-    background: radial-gradient(circle at top right, rgba(82, 97, 107, 0.1), transparent),
-      radial-gradient(circle at bottom left, rgba(82, 97, 107, 0.05), transparent);
+    background:
+      radial-gradient(circle at top right, hsl(var(--primary) / 0.22), transparent 28%),
+      radial-gradient(circle at bottom left, hsl(var(--secondary) / 0.3), transparent 34%);
+  }
+
+  .app-theme-shell {
+    background:
+      radial-gradient(circle at 6% 0%, hsl(var(--secondary) / 0.14), transparent 26%),
+      radial-gradient(circle at 96% 0%, hsl(var(--primary) / 0.16), transparent 30%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
   }
 }
 
