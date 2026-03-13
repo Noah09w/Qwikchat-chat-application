@@ -135,9 +135,7 @@ export function SettingsPage() {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const activeTab = getRequestedTab(searchParams.get('tab')) ?? selectedTab;
 
-    const [avatarUrl, setAvatarUrl] = useState('');
-    const [username, setUsername] = useState('');
-    const [bio, setBio] = useState('');
+    const [profileDrafts, setProfileDrafts] = useState<Record<string, { avatarUrl: string; username: string; bio: string }>>({});
     const [saving, setSaving] = useState(false);
     const [saveMsg, setSaveMsg] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -149,12 +147,25 @@ export function SettingsPage() {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    useEffect(() => {
+    const activeDraft = currentUser ? profileDrafts[currentUser.id] : undefined;
+    const avatarUrl = activeDraft?.avatarUrl ?? currentUser?.avatar_url ?? '';
+    const username = activeDraft?.username ?? currentUser?.username ?? '';
+    const bio = activeDraft?.bio ?? currentUser?.bio ?? '';
+
+    const updateProfileDraft = (updates: Partial<{ avatarUrl: string; username: string; bio: string }>) => {
         if (!currentUser) return;
-        setAvatarUrl(currentUser.avatar_url || '');
-        setUsername(currentUser.username || '');
-        setBio(currentUser.bio || '');
-    }, [currentUser]);
+        setProfileDrafts((prev) => {
+            const existing = prev[currentUser.id] ?? {
+                avatarUrl: currentUser.avatar_url || '',
+                username: currentUser.username || '',
+                bio: currentUser.bio || '',
+            };
+            return {
+                ...prev,
+                [currentUser.id]: { ...existing, ...updates },
+            };
+        });
+    };
 
     const navItems: SettingsNavItem[] = useMemo(() => [
         { key: 'profile', icon: User, title: 'Profile', description: 'Identity, avatar, public bio' },
@@ -173,6 +184,11 @@ export function SettingsPage() {
             setSaveMsg(`Update failed: ${error.message}`);
         } else {
             setCurrentUser({ ...currentUser, avatar_url: avatarUrl, username, bio });
+            setProfileDrafts((prev) => {
+                const next = { ...prev };
+                delete next[currentUser.id];
+                return next;
+            });
             setSaveMsg('Profile updated successfully');
         }
         setSaving(false);
@@ -318,7 +334,7 @@ export function SettingsPage() {
                                     >
                                         <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
                                             <SurfaceCard className="flex flex-col items-center justify-center gap-5">
-                                                <AvatarSelector currentAvatar={avatarUrl} onSelect={setAvatarUrl} username={username} />
+                                                <AvatarSelector currentAvatar={avatarUrl} onSelect={(value) => updateProfileDraft({ avatarUrl: value })} username={username} />
                                                 <div className="text-center">
                                                     <p className="text-sm font-semibold text-foreground">Profile image</p>
                                                     <p className="mt-1 text-sm text-muted-foreground">Pick an avatar that is easy to recognize in chat.</p>
@@ -327,7 +343,7 @@ export function SettingsPage() {
                                             <SurfaceCard className="space-y-5">
                                                 <div className="space-y-2">
                                                     <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Display name</Label>
-                                                    <Input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="preferred_name" className="h-12 rounded-2xl border-border/70 bg-card px-4 text-sm font-semibold" />
+                                                    <Input value={username} onChange={(event) => updateProfileDraft({ username: event.target.value })} placeholder="preferred_name" className="h-12 rounded-2xl border-border/70 bg-card px-4 text-sm font-semibold" />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Email</Label>
@@ -335,7 +351,7 @@ export function SettingsPage() {
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Bio</Label>
-                                                    <textarea value={bio} onChange={(event) => setBio(event.target.value)} placeholder="Add a short bio for your team and contacts." className="min-h-[140px] w-full rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm leading-6 text-foreground outline-none transition-all focus:border-primary/40 focus:ring-2 focus:ring-primary/15" />
+                                                    <textarea value={bio} onChange={(event) => updateProfileDraft({ bio: event.target.value })} placeholder="Add a short bio for your team and contacts." className="min-h-[140px] w-full rounded-2xl border border-border/70 bg-card px-4 py-3 text-sm leading-6 text-foreground outline-none transition-all focus:border-primary/40 focus:ring-2 focus:ring-primary/15" />
                                                 </div>
                                             </SurfaceCard>
                                         </div>

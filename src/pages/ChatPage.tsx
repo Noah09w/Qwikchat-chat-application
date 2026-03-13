@@ -141,16 +141,6 @@ export default function ChatPage() {
     }, []);
 
     useEffect(() => {
-        if (!isMobile) {
-            setIsSidebarOpen(false);
-            return;
-        }
-        if (!activeChatId) {
-            setIsSidebarOpen(true);
-        }
-    }, [activeChatId, isMobile]);
-
-    useEffect(() => {
         supabase.auth.getSession().then(({ data: { session }, error }) => {
             if (error) {
                 console.error('Session error:', error.message);
@@ -181,6 +171,8 @@ export default function ChatPage() {
 
     if (!session) return null;
 
+    const isSidebarVisible = isMobile ? (isSidebarOpen || !activeChatId) : true;
+
     return (
         <div className="app-theme-shell flex flex-col h-screen w-full bg-background text-foreground overflow-hidden">
             {/* -- Global Header -- */}
@@ -188,7 +180,7 @@ export default function ChatPage() {
 
             <div className="flex flex-1 overflow-hidden relative">
                 {/* -- Mobile Sidebar Overlay -- */}
-                {isSidebarOpen && (
+                {isMobile && isSidebarOpen && (
                     <div
                         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300"
                         onClick={() => setIsSidebarOpen(false)}
@@ -198,7 +190,7 @@ export default function ChatPage() {
                 {/* -- Sidebar -- */}
                 <div className={cn(
                     "fixed inset-y-0 left-0 z-50 h-full border-r border-border/50 transition-transform duration-300 ease-in-out md:relative md:inset-auto md:z-10 md:translate-x-0",
-                    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+                    isSidebarVisible ? "translate-x-0" : "-translate-x-full"
                 )}>
                     <Sidebar onChatSelected={() => { if (isMobile) setIsSidebarOpen(false); }} />
                 </div>
