@@ -1,7 +1,7 @@
 .auth-single-shell {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 1.4rem;
   display: flex;
   align-items: center;
@@ -377,6 +377,16 @@
 }
 
 @media (max-width: 640px) {
+  .auth-single-shell {
+    padding: 0.85rem;
+  }
+
+  .auth-single-hero,
+  .auth-single-form-pane {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
   .auth-single-form-pane h1 {
     font-size: 1.35rem;
   }
@@ -393,5 +403,15 @@
   .auth-single-socials button {
     width: 2rem;
     height: 2rem;
+  }
+
+  .auth-single-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .auth-single-submit,
+  .auth-single-switch-cta {
+    width: 100%;
   }
 }

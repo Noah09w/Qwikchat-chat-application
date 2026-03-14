@@ -50,18 +50,18 @@ export function AvatarSelector({ currentAvatar, onSelect, username }: AvatarSele
                             <Camera className="h-4 w-4" />
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md rounded-2xl border border-border/50 bg-card premium-shadow p-6">
+                    <DialogContent className="rounded-2xl border border-border/50 bg-card p-4 premium-shadow sm:max-w-md sm:p-6">
                         <DialogHeader>
                             <DialogTitle className="text-xl font-bold tracking-tight text-center">Change Avatar</DialogTitle>
                         </DialogHeader>
 
                         <div className="space-y-6 mt-4">
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-3 gap-3 sm:gap-4">
                                 {PRESET_AVATARS.map((url) => (
                                     <button
                                         key={url}
                                         onClick={() => handleSelect(url)}
-                                        className="relative rounded-2xl overflow-hidden group hover:scale-105 transition-all"
+                                        className="relative aspect-square overflow-hidden rounded-2xl transition-all group hover:scale-105"
                                     >
                                         <img src={url} alt="Avatar option" className="h-full w-full object-cover" />
                                         {currentAvatar === url && (
@@ -76,7 +76,7 @@ export function AvatarSelector({ currentAvatar, onSelect, username }: AvatarSele
 
                             <div className="space-y-3 pt-2">
                                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Avatar Image URL</label>
-                                <div className="flex gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row">
                                     <div className="relative flex-1">
                                         <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                                         <Input
@@ -89,7 +89,7 @@ export function AvatarSelector({ currentAvatar, onSelect, username }: AvatarSele
                                     <Button
                                         onClick={() => handleSelect(customUrl)}
                                         disabled={!customUrl.startsWith('http')}
-                                        className="rounded-xl h-10 px-6 font-bold text-xs bg-primary text-primary-foreground premium-shadow"
+                                        className="h-10 rounded-xl bg-primary px-6 text-xs font-bold text-primary-foreground premium-shadow sm:w-auto"
                                     >
                                         Apply
                                     </Button>

@@ -79,6 +79,16 @@ export function Header({ onMobileChatsClick }: { onMobileChatsClick?: () => void
 
             {/* Actions */}
             <div className="flex items-center gap-2 sm:gap-5">
+                <CreateChatModal>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-xl text-muted-foreground sm:hidden"
+                        aria-label="New chat"
+                    >
+                        <Plus className="h-5 w-5" />
+                    </Button>
+                </CreateChatModal>
                 <Button
                     variant="ghost"
                     size="icon"

@@ -24,7 +24,7 @@ export function RightSidebar() {
     };
 
     return (
-        <div className="fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-[380px] animate-in slide-in-from-right duration-300 flex-col border-l border-border bg-card md:relative md:inset-auto md:right-auto md:z-30 md:w-[320px]">
+        <div className="fixed inset-y-0 right-0 z-50 flex h-full w-full animate-in slide-in-from-right duration-300 flex-col border-l border-border bg-card sm:max-w-[380px] md:relative md:inset-auto md:right-auto md:z-30 md:w-[320px]">
             {/* Header */}
             <div className="glass-panel flex h-16 shrink-0 items-center justify-between px-4 md:h-[var(--header-height)] md:px-6">
                 <h2 className="text-sm font-bold text-foreground tracking-tight">Contact Info</h2>
@@ -39,7 +39,7 @@ export function RightSidebar() {
             </div>
 
             <ScrollArea className="flex-1">
-                <div className="p-6 space-y-8">
+                <div className="space-y-8 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                     {/* Profile Section */}
                     <div className="flex flex-col items-center text-center">
                         <Avatar className="h-20 w-20 mb-4 border border-border premium-shadow">
@@ -106,13 +106,13 @@ export function RightSidebar() {
                             <button
                                 key={i}
                                 onClick={item.action}
-                                className="flex items-center justify-between w-full p-2.5 rounded-xl hover:bg-muted/50 transition-colors group"
+                                className="group flex w-full items-start justify-between gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-muted/50"
                             >
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-start gap-3">
                                     <div className="h-9 w-9 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm">
                                         <item.icon className={cn("h-4 w-4", item.color)} />
                                     </div>
-                                    <span className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</span>
+                                    <span className="text-sm font-semibold leading-5 text-muted-foreground transition-colors group-hover:text-foreground">{item.label}</span>
                                 </div>
                                 <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
                             </button>

@@ -180,6 +180,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
 
         setIsUploading(true);
         setSendError(null);
+        let tempId: string | null = null;
 
         try {
             const fileExt = file.name.split('.').pop();
@@ -197,7 +198,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
 
             const type = file.type.startsWith('image/') ? 'IMAGE' : 'DOCUMENT';
 
-            const tempId = `temp-file-${Date.now()}`;
+            tempId = `temp-file-${Date.now()}`;
 
             addMessage(activeChatId, {
                 id: tempId,
@@ -235,6 +236,9 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
 
         } catch (error) {
             console.error('Upload failed', error);
+            if (tempId) {
+                await deleteMessage(activeChatId, tempId, false);
+            }
             setSendError('Failed to upload file. Please try again.');
         } finally {
             setIsUploading(false);
@@ -277,12 +281,12 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col h-full relative overflow-hidden bg-background"
+            className="relative flex h-full min-w-0 flex-col overflow-hidden bg-background"
         >
             {currentChatDetails ? (
                 <div className="flex h-full flex-col bg-[radial-gradient(circle_at_top,_hsl(var(--secondary)/0.3),_transparent_38%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--card)))]">
                     {/* -- Chat Header -- */}
-                    <div className="glass-panel z-20 flex h-16 shrink-0 items-center justify-between px-3 md:h-[var(--header-height)] md:px-6">
+                    <div className="glass-panel z-20 flex h-16 shrink-0 items-center justify-between px-3 sm:px-4 md:h-[var(--header-height)] md:px-6">
                         <div className="flex min-w-0 items-center gap-3 md:gap-4">
                             <motion.div
                                 initial={{ scale: 0.8, opacity: 0 }}
@@ -332,7 +336,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                     </div>
 
                     {/* -- Messages -- */}
-                    <ScrollArea ref={scrollRef} className="flex-1 px-4 md:px-6">
+                    <ScrollArea ref={scrollRef} className="flex-1 px-3 sm:px-4 md:px-6">
                         <div className="w-full pb-6 pt-6 sm:pt-10">
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
@@ -440,7 +444,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                     </ScrollArea>
 
                     {/* -- Input Bar -- */}
-                    <div className="z-20 w-full shrink-0 px-3 pb-3 pt-2 md:px-6 md:pb-5">
+                    <div className="z-20 w-full shrink-0 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 sm:px-4 md:px-6 md:pb-5">
                         <AnimatePresence>
                             {replyingTo && (
                                 <motion.div
@@ -451,7 +455,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                 >
                                     <div className="flex min-w-0 flex-col">
                                         <span className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-widest mb-1">Replying to message</span>
-                                        <span className="max-w-[60vw] truncate text-sm text-foreground/90 sm:max-w-md">"{replyingTo.content}"</span>
+                                        <span className="max-w-[calc(100vw-8rem)] truncate text-sm text-foreground/90 sm:max-w-md">"{replyingTo.content}"</span>
                                     </div>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-accent" onClick={() => setReplyingTo(null)}>
                                         <X className="h-4 w-4 text-muted-foreground" />
@@ -471,7 +475,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="mb-0.5 hidden h-10 w-10 shrink-0 rounded-xl text-muted-foreground/60 transition-all hover:bg-accent hover:text-foreground sm:inline-flex md:h-11 md:w-11"
+                                className="mb-0.5 h-10 w-10 shrink-0 rounded-xl text-muted-foreground/60 transition-all hover:bg-accent hover:text-foreground md:h-11 md:w-11"
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isUploading}
                             >
@@ -500,7 +504,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                 }}
                             />
 
-                            <div className="flex items-center gap-1 mb-0.5 shrink-0 pr-1">
+                            <div className="mb-0.5 flex shrink-0 items-center gap-1 pr-0.5 sm:pr-1">
                                 <div className="hidden md:flex items-center gap-1 mr-2 opacity-60">
                                     {/* Input Feature Previews (Voice + GIF) */}
                                     <Button type="button" variant="ghost" size="icon" className="h-11 w-11 hover:text-foreground hover:bg-accent rounded-xl transition-all" onClick={openGifSearch}>
@@ -518,6 +522,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                         <EmojiPicker
                                             onEmojiClick={onEmojiClick}
                                             previewConfig={{ showPreview: false }}
+                                            width={280}
                                         />
                                     </PopoverContent>
                                 </Popover>
@@ -542,7 +547,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                             <motion.div
                                 initial={{ opacity: 0, y: 5 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="absolute bottom-full left-1/2 mb-2 w-max max-w-[90vw] -translate-x-1/2 rounded-[100px] border border-red-500/20 bg-card/95 px-4 py-2 text-center text-xs font-semibold text-red-500 shadow-lg backdrop-blur-sm"
+                                className="absolute bottom-full left-1/2 mb-2 w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 rounded-[28px] border border-red-500/20 bg-card/95 px-4 py-2 text-center text-xs font-semibold text-red-500 shadow-lg backdrop-blur-sm"
                             >
                                 {sendError}
                             </motion.div>

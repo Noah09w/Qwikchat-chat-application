@@ -1,6 +1,45 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 
+const HIDDEN_MESSAGES_STORAGE_KEY = 'qwikchat-hidden-messages';
+
+type HiddenMessagesMap = Record<string, string[]>;
+
+function readHiddenMessages(): HiddenMessagesMap {
+    if (typeof window === 'undefined') return {};
+
+    try {
+        const stored = localStorage.getItem(HIDDEN_MESSAGES_STORAGE_KEY);
+        return stored ? JSON.parse(stored) as HiddenMessagesMap : {};
+    } catch {
+        return {};
+    }
+}
+
+function persistHiddenMessages(hiddenMessages: HiddenMessagesMap) {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(HIDDEN_MESSAGES_STORAGE_KEY, JSON.stringify(hiddenMessages));
+}
+
+function isMessageHidden(hiddenMessages: HiddenMessagesMap, chatId: string, messageId: string) {
+    return hiddenMessages[chatId]?.includes(messageId) ?? false;
+}
+
+function addHiddenMessage(hiddenMessages: HiddenMessagesMap, chatId: string, messageId: string) {
+    if (isMessageHidden(hiddenMessages, chatId, messageId)) {
+        return hiddenMessages;
+    }
+
+    return {
+        ...hiddenMessages,
+        [chatId]: [...(hiddenMessages[chatId] ?? []), messageId],
+    };
+}
+
+function filterHiddenMessages(chatId: string, messages: Message[], hiddenMessages: HiddenMessagesMap) {
+    return messages.filter((message) => !isMessageHidden(hiddenMessages, chatId, message.id));
+}
+
 export interface User {
     id: string;
     email: string;
@@ -56,6 +95,7 @@ export interface ChatState {
     chats: Chat[];
     setChats: (chats: Chat[]) => void;
     messages: Record<string, Message[]>;
+    hiddenMessages: HiddenMessagesMap;
     setMessages: (chatId: string, messages: Message[]) => void;
     addMessage: (chatId: string, message: Message) => void;
     replaceMessage: (chatId: string, tempId: string, message: Message) => void;
@@ -204,13 +244,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     setChats: (chats) => set({ chats }),
 
     messages: {},
+    hiddenMessages: readHiddenMessages(),
     setMessages: (chatId, messages) =>
         set((state) => ({
             ...state,
-            messages: { ...state.messages, [chatId]: messages },
+            messages: {
+                ...state.messages,
+                [chatId]: filterHiddenMessages(chatId, messages, state.hiddenMessages),
+            },
         })),
     addMessage: (chatId, message) =>
         set((state) => {
+            if (isMessageHidden(state.hiddenMessages, chatId, message.id)) return state;
             const chatMessages = state.messages[chatId] || [];
             if (chatMessages.find((m) => m.id === message.id)) return state;
             return {
@@ -222,7 +267,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set((state) => {
             const chatMessages = state.messages[chatId] || [];
             const existingIndex = chatMessages.findIndex((m) => m.id === tempId);
-            const withoutDuplicate = chatMessages.filter((m) => m.id !== message.id);
+            const withoutDuplicate = chatMessages.filter((m) => m.id !== tempId && m.id !== message.id);
+
+            if (isMessageHidden(state.hiddenMessages, chatId, message.id)) {
+                return {
+                    ...state,
+                    messages: { ...state.messages, [chatId]: withoutDuplicate },
+                };
+            }
 
             if (existingIndex === -1) {
                 return {
@@ -294,8 +346,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     },
                 };
             } else {
+                const shouldPersistHide = !messageId.startsWith('temp-');
+                const hiddenMessages = shouldPersistHide
+                    ? addHiddenMessage(state.hiddenMessages, chatId, messageId)
+                    : state.hiddenMessages;
+
+                if (shouldPersistHide) {
+                    persistHiddenMessages(hiddenMessages);
+                }
+
                 return {
                     ...state,
+                    hiddenMessages,
                     messages: {
                         ...state.messages,
                         [chatId]: chatMessages.filter((m) => m.id !== messageId),

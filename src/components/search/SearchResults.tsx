@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { openOrCreateDirectChat } from '@/lib/chatActions';
+import { Input } from '@/components/ui/input';
 
 type FilterType = 'All' | 'Messages' | 'People' | 'Files' | 'Media';
 type SearchMetadata = { chatId: string };
@@ -41,7 +42,7 @@ interface SearchResult {
 }
 
 export function SearchResults() {
-    const { searchQuery, setSearchOpen, setActiveChatId, currentUser, chats, setChats } = useChatStore();
+    const { searchQuery, setSearchQuery, setSearchOpen, setActiveChatId, currentUser, chats, setChats } = useChatStore();
     const [activeFilter, setActiveFilter] = useState<FilterType>('All');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -170,8 +171,8 @@ export function SearchResults() {
         >
             {/* Header */}
             <div className="sticky top-0 z-10 border-b border-border/50 bg-card/50 p-4 backdrop-blur-xl glass-panel md:p-6">
-                <div className="mb-4 flex items-center justify-between md:mb-6">
-                    <div className="flex flex-col">
+                <div className="mb-4 flex items-start justify-between gap-3 md:mb-6">
+                    <div className="min-w-0 flex-1">
                         <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">Search Results</h2>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1 space-x-1">
                             <span>Matches for</span>
@@ -184,6 +185,26 @@ export function SearchResults() {
                     >
                         <X className="h-5 w-5" />
                     </button>
+                </div>
+
+                <div className="relative mb-4">
+                    <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        type="text"
+                        placeholder="Search messages, people and files..."
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        className="h-11 rounded-xl border-border/70 bg-background/80 pl-10 pr-10 text-sm shadow-inner"
+                    />
+                    {searchQuery ? (
+                        <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    ) : null}
                 </div>
 
                 {/* Filters */}
@@ -240,9 +261,10 @@ export function SearchResults() {
                                         transition={{ delay: idx * 0.05 }}
                                         key={res.id + res.type}
                                         onClick={() => handleResultClick(res)}
-                                        className="w-full flex items-center gap-4 p-4 rounded-3xl bg-card border border-border/50 hover:border-primary/20 hover:bg-primary/[0.02] transition-all text-left group premium-shadow"
+                                        className="w-full rounded-3xl border border-border/50 bg-card p-4 text-left transition-all group premium-shadow hover:border-primary/20 hover:bg-primary/[0.02]"
                                     >
-                                        <div className="h-12 w-12 rounded-2xl bg-background border border-border/30 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                                        <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+                                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/30 bg-background transition-colors group-hover:bg-primary/10">
                                             {res.type === 'Messages' && <MessageSquare className="h-5 w-5 text-primary" />}
                                             {res.type === 'People' && (
                                                 <Avatar className="h-full w-full rounded-2xl ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
@@ -254,16 +276,17 @@ export function SearchResults() {
                                             )}
                                             {res.type === 'Files' && <FileText className="h-5 w-5 text-amber-500" />}
                                             {res.type === 'Media' && <ImageIcon className="h-5 w-5 text-emerald-500" />}
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between mb-0.5">
-                                                <span className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">{res.title}</span>
-                                                <span className="text-[10px] font-bold text-muted-foreground tabular-nums">{res.time}</span>
                                             </div>
-                                            <p className="text-xs text-muted-foreground truncate font-medium group-hover:text-foreground transition-colors">{res.desc}</p>
+
+                                            <div className="min-w-0 flex-1">
+                                                <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                                    <span className="truncate text-sm font-bold text-foreground transition-colors group-hover:text-primary">{res.title}</span>
+                                                    {res.time ? <span className="text-[10px] font-bold text-muted-foreground tabular-nums">{res.time}</span> : null}
+                                                </div>
+                                                <p className="break-words text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground sm:truncate">{res.desc}</p>
+                                            </div>
+                                            <ChevronRight className="mt-1 hidden h-4 w-4 shrink-0 text-muted-foreground/30 transition-all group-hover:translate-x-1 group-hover:text-primary sm:block" />
                                         </div>
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-all group-hover:translate-x-1" />
                                     </motion.button>
                                 ))}
                             </motion.div>

@@ -115,7 +115,7 @@ export function MessageBubble({
             )}
         >
             <div className={cn(
-                "flex max-w-[85%] md:max-w-[75%] gap-3 items-end",
+                "flex max-w-[92%] gap-2.5 items-end sm:max-w-[85%] sm:gap-3 md:max-w-[75%]",
                 isCurrentUser ? "flex-row-reverse" : "flex-row"
             )}>
                 {!isCurrentUser && (
@@ -137,8 +137,8 @@ export function MessageBubble({
                     <div className="flex items-center gap-2 relative">
                         {/* Hover Quick Actions */}
                         <div className={cn(
-                            "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover/message:opacity-100 transition-all duration-200 flex items-center gap-1 z-10",
-                            isCurrentUser ? "-left-24" : "-right-24"
+                            "absolute z-10 flex items-center gap-1 transition-all duration-200 opacity-100 sm:top-1/2 sm:-translate-y-1/2 sm:opacity-0 sm:group-hover/message:opacity-100",
+                            isCurrentUser ? "right-2 -top-10 sm:right-auto sm:-left-24" : "left-2 -top-10 sm:left-auto sm:-right-24"
                         )}>
                             {onReply && !isDeleted && (
                                 <button
@@ -193,7 +193,7 @@ export function MessageBubble({
                             ) : type === 'IMAGE' && file_url ? (
                                 <div className="relative group/image">
                                     <a href={file_url} target="_blank" rel="noopener noreferrer">
-                                        <img src={file_url} alt="Shared image" className="max-w-[280px] md:max-w-sm w-full cursor-pointer hover:opacity-95 transition-opacity object-cover block" />
+                                        <img src={file_url} alt="Shared image" className="block w-full max-w-[220px] cursor-pointer object-cover transition-opacity hover:opacity-95 sm:max-w-[280px] md:max-w-sm" />
                                     </a>
                                     {content && content !== `Sent a image` && (
                                         <p className={cn("px-4 py-2.5 font-medium leading-relaxed whitespace-pre-wrap break-words", fontClasses)}>{content}</p>
@@ -223,8 +223,8 @@ export function MessageBubble({
 
                         {/* External Hover/End Timestamp */}
                         <div className={cn(
-                            "absolute top-1/2 -translate-y-1/2 flex items-center gap-1.5 opacity-0 group-hover/message:opacity-100 transition-opacity duration-200",
-                            isCurrentUser ? "-left-14" : "-right-14"
+                            "absolute -bottom-5 flex items-center gap-1.5 text-[10px] opacity-100 transition-opacity duration-200 sm:top-1/2 sm:-translate-y-1/2 sm:opacity-0 sm:group-hover/message:opacity-100",
+                            isCurrentUser ? "right-2 sm:right-auto sm:-left-14" : "left-2 sm:left-auto sm:-right-14"
                         )}>
                             <span className="text-[10px] font-semibold text-muted-foreground/50 tracking-wide whitespace-nowrap">
                                 {time}

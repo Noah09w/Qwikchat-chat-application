@@ -143,7 +143,7 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
             <DialogTrigger asChild>
                 {children}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-card border-border shadow-2xl rounded-3xl overflow-hidden p-0">
+            <DialogContent className="overflow-hidden rounded-3xl border-border bg-card p-0 shadow-2xl sm:max-w-md">
                 <AnimatePresence mode="wait">
                     {view === 'DIRECT' || view === 'SELECT_MEMBERS' ? (
                         <motion.div
@@ -152,7 +152,7 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 20 }}
                         >
-                            <div className="p-6 pb-4 border-b border-border bg-card">
+                            <div className="border-b border-border bg-card p-4 pb-4 sm:p-6 sm:pb-4">
                                 <DialogHeader>
                                     <div className="flex items-center justify-between">
                                         <div className="flex flex-col text-left">
@@ -176,7 +176,7 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
                                     </div>
                                 </DialogHeader>
 
-                                <form onSubmit={handleSearch} className="flex gap-2 mt-4">
+                                <form onSubmit={handleSearch} className="mt-4 flex gap-2">
                                     <div className="relative flex-1 group">
                                         <Input
                                             value={searchQuery}
@@ -194,8 +194,8 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
                                 </form>
                             </div>
 
-                            <div className="p-4 bg-background">
-                                <ScrollArea className="h-[350px]">
+                            <div className="bg-background p-4">
+                                <ScrollArea className="h-[min(50vh,350px)]">
                                     <div className="space-y-1 pr-3">
                                         {results.length === 0 && !isSearching && searchQuery && (
                                             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -227,16 +227,16 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
                                                             : "bg-card border-transparent hover:border-border hover:bg-muted"
                                                     )}
                                                 >
-                                                    <div className="flex items-center gap-3">
+                                                    <div className="flex min-w-0 items-center gap-3">
                                                         <Avatar className="h-10 w-10 border border-border shadow-sm">
                                                             <AvatarImage src={user.avatar_url} />
                                                             <AvatarFallback className="bg-muted text-muted-foreground font-bold text-xs">
                                                                 {user.username?.substring(0, 2).toUpperCase()}
                                                             </AvatarFallback>
                                                         </Avatar>
-                                                        <div className="text-left">
+                                                        <div className="min-w-0 text-left">
                                                             <p className="text-sm font-semibold text-foreground leading-none mb-1 group-hover:text-primary transition-colors">{user.username}</p>
-                                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{user.email}</p>
+                                                            <p className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">{user.email}</p>
                                                         </div>
                                                     </div>
                                                     <div className={cn(
@@ -272,7 +272,7 @@ export function CreateChatModal({ children }: { children: React.ReactNode }) {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
-                            className="p-6 space-y-6"
+                            className="space-y-6 p-4 sm:p-6"
                         >
                             <DialogHeader>
                                 <div className="flex items-center gap-3">

@@ -59,16 +59,16 @@ function SectionShell({
     aside?: React.ReactNode;
 }) {
     return (
-        <section className="rounded-[28px] border border-border/70 bg-card/80 p-6 md:p-8 shadow-[0_24px_80px_-42px_rgba(30,32,34,0.45)] backdrop-blur-xl">
-            <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <section className="rounded-[24px] border border-border/70 bg-card/80 p-4 shadow-[0_24px_80px_-42px_rgba(30,32,34,0.45)] backdrop-blur-xl sm:p-6 md:rounded-[28px] md:p-8">
+            <div className="mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-start md:justify-between">
                 <div className="space-y-2">
                     <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-muted-foreground">{eyebrow}</p>
                     <div className="space-y-1">
-                        <h2 className="text-2xl font-bold tracking-tight text-foreground">{title}</h2>
+                        <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h2>
                         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
                     </div>
                 </div>
-                {aside}
+                {aside ? <div className="w-full md:w-auto">{aside}</div> : null}
             </div>
             <div className="space-y-5">{children}</div>
         </section>
@@ -77,7 +77,7 @@ function SectionShell({
 
 function SurfaceCard({ className, children }: { className?: string; children: React.ReactNode }) {
     return (
-        <div className={cn('rounded-3xl border border-border/70 bg-background/70 p-5 shadow-sm', className)}>
+        <div className={cn('rounded-[24px] border border-border/70 bg-background/70 p-4 shadow-sm sm:rounded-3xl sm:p-5', className)}>
             {children}
         </div>
     );
@@ -98,7 +98,7 @@ function ToggleRow({
         <button
             type="button"
             onClick={onToggle}
-            className="flex w-full items-center justify-between gap-4 rounded-2xl border border-border/60 bg-background/75 px-4 py-4 text-left transition-all hover:border-primary/30 hover:bg-background"
+            className="flex w-full flex-col items-start gap-4 rounded-2xl border border-border/60 bg-background/75 px-4 py-4 text-left transition-all hover:border-primary/30 hover:bg-background sm:flex-row sm:items-center sm:justify-between"
         >
             <div className="space-y-1">
                 <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>
@@ -237,7 +237,7 @@ export function SettingsPage() {
     ];
 
     return (
-        <div className="app-theme-shell flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
+        <div className="app-theme-shell flex h-dvh min-h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
             <header className="glass-panel flex h-16 items-center px-4 md:h-[var(--header-height)] md:px-6">
                 <Button variant="ghost" size="icon" onClick={() => navigate('/chat')} className="mr-3 h-10 w-10 rounded-2xl border border-border/70 bg-card/70 text-muted-foreground hover:bg-accent hover:text-foreground">
                     <ArrowLeft className="h-5 w-5" />
@@ -304,14 +304,14 @@ export function SettingsPage() {
 
                 <main className="min-w-0 flex-1 overflow-hidden">
                     <ScrollArea className="h-full">
-                        <div className="mx-auto w-full max-w-6xl px-4 py-5 md:px-6 md:py-8">
-                            <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-1 lg:hidden">
+                        <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4 md:px-6 md:py-8">
+                            <div className="mb-5 flex items-center gap-2 overflow-x-auto pb-1 lg:hidden">
                                 {navItems.map((item) => (
                                     <button
                                         key={item.key}
                                         type="button"
                                         onClick={() => setSelectedTab(item.key)}
-                                        className={cn('shrink-0 rounded-2xl border px-4 py-2.5 text-sm font-semibold', activeTab === item.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border/70 bg-card/80 text-foreground')}
+                                        className={cn('shrink-0 rounded-2xl border px-3 py-2 text-sm font-semibold sm:px-4 sm:py-2.5', activeTab === item.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border/70 bg-card/80 text-foreground')}
                                     >
                                         {item.title}
                                     </button>
@@ -330,7 +330,7 @@ export function SettingsPage() {
                                         eyebrow="Profile"
                                         title="Profile and identity"
                                         description="Manage how you appear across conversations, participant lists and profile surfaces."
-                                        aside={<Button onClick={saveProfile} disabled={saving} className="h-11 rounded-2xl px-5 font-semibold">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save profile'}</Button>}
+                                        aside={<Button onClick={saveProfile} disabled={saving} className="h-11 w-full rounded-2xl px-5 font-semibold md:w-auto">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save profile'}</Button>}
                                     >
                                         <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
                                             <SurfaceCard className="flex flex-col items-center justify-center gap-5">
@@ -368,7 +368,7 @@ export function SettingsPage() {
                                                 <Label className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Confirm password</Label>
                                                 <Input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="h-12 rounded-2xl border-border/70 bg-card px-4" placeholder="Repeat password" />
                                             </div>
-                                            <Button onClick={changePassword} className="h-11 rounded-2xl px-5 font-semibold">
+                                            <Button onClick={changePassword} className="h-11 w-full rounded-2xl px-5 font-semibold sm:w-auto">
                                                 Update password
                                             </Button>
                                         </SurfaceCard>
@@ -379,7 +379,7 @@ export function SettingsPage() {
                                                     <p className="text-base font-bold tracking-tight text-destructive">Delete account</p>
                                                     <p className="text-sm leading-6 text-destructive/80">Permanently remove your account and sign out from this workspace.</p>
                                                 </div>
-                                                <Button variant="destructive" onClick={handleDeleteAccount} className="h-11 rounded-2xl px-5 font-semibold">
+                                                <Button variant="destructive" onClick={handleDeleteAccount} className="h-11 w-full rounded-2xl px-5 font-semibold sm:w-auto">
                                                     <Trash2 className="h-4 w-4" />
                                                     Delete account
                                                 </Button>

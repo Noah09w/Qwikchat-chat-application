@@ -174,7 +174,7 @@ export default function ChatPage() {
     const isSidebarVisible = isMobile ? (isSidebarOpen || !activeChatId) : true;
 
     return (
-        <div className="app-theme-shell flex flex-col h-screen w-full bg-background text-foreground overflow-hidden">
+        <div className="app-theme-shell flex h-dvh min-h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
             {/* -- Global Header -- */}
             <Header onMobileChatsClick={() => setIsSidebarOpen(true)} />
 

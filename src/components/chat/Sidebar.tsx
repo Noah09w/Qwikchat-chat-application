@@ -31,9 +31,9 @@ export function Sidebar({ onChatSelected }: { onChatSelected?: () => void }) {
     const earlierChats = filteredChats.filter(chat => !chat.is_pinned);
 
     return (
-        <div className="flex h-full w-screen max-w-[22rem] flex-col overflow-hidden border-r border-border/60 bg-card/82 shadow-2xl backdrop-blur-xl md:w-[var(--sidebar-width)] md:max-w-none">
+        <div className="flex h-full w-[min(22rem,100vw)] flex-col overflow-hidden border-r border-border/60 bg-card/82 shadow-2xl backdrop-blur-xl md:w-[var(--sidebar-width)]">
             {/* Tabs */}
-            <div className="px-6 pt-6 pb-4">
+            <div className="px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
                 <div className="flex items-center gap-1 bg-background/70 p-1 rounded-xl border border-border/70 shadow-inner">
                     {tabs.map((tab) => (
                         <button
@@ -69,7 +69,7 @@ export function Sidebar({ onChatSelected }: { onChatSelected?: () => void }) {
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 className="space-y-3"
                             >
-                                <div className="px-6 flex items-center justify-between">
+                                <div className="flex items-center justify-between px-4 sm:px-6">
                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                                         <Pin className="h-3 w-3" />
                                         Pinned
@@ -78,7 +78,7 @@ export function Sidebar({ onChatSelected }: { onChatSelected?: () => void }) {
                                         {pinnedChats.length}
                                     </span>
                                 </div>
-                                <div className="px-3 space-y-1">
+                                <div className="space-y-1 px-2 sm:px-3">
                                     {pinnedChats.map((chat) => (
                                         <ChatListItem
                                             key={chat.id}
@@ -99,10 +99,10 @@ export function Sidebar({ onChatSelected }: { onChatSelected?: () => void }) {
 
                     {/* Earlier Section */}
                     <div className="space-y-3">
-                        <div className="px-6">
+                        <div className="px-4 sm:px-6">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.22em]">Messages</span>
                         </div>
-                        <div className="px-3 space-y-1">
+                        <div className="space-y-1 px-2 sm:px-3">
                             <AnimatePresence mode="popLayout" initial={false}>
                                 {earlierChats.map((chat) => (
                                     <ChatListItem
@@ -125,7 +125,7 @@ export function Sidebar({ onChatSelected }: { onChatSelected?: () => void }) {
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="flex flex-col items-center justify-center py-20 text-center px-8"
+                            className="flex flex-col items-center justify-center px-6 py-16 text-center sm:px-8 sm:py-20"
                         >
                             <div className="h-12 w-12 rounded-xl bg-muted/30 flex items-center justify-center mb-4 border border-border">
                                 <MessageSquare className="h-6 w-6 text-muted-foreground" />
