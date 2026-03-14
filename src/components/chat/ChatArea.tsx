@@ -51,6 +51,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
     const activeChatMessages = messages[activeChatId] ?? EMPTY_MESSAGES;
@@ -105,6 +106,12 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
         }
     }, [activeChatMessages, activeTyping]);
 
+    useEffect(() => {
+        if (textareaRef.current) {
+            resizeComposer(textareaRef.current);
+        }
+    }, [newMessage]);
+
     const handleTyping = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setNewMessage(e.target.value);
         typingChannelRef.current?.send({
@@ -114,12 +121,20 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
         });
     };
 
+    const resizeComposer = (element: HTMLTextAreaElement) => {
+        element.style.height = 'auto';
+        element.style.height = `${Math.min(element.scrollHeight, 128)}px`;
+    };
+
     const sendMessage = async () => {
         if (!newMessage.trim() || isSending) return;
 
         setIsSending(true);
         const textToSend = newMessage.trim();
         setNewMessage('');
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+        }
 
         typingChannelRef.current?.send({
             type: 'broadcast',
@@ -451,95 +466,107 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 10 }}
-                                    className="mb-2 p-3 bg-card/90 border border-border/60 rounded-2xl flex items-center justify-between shadow-lg"
+                                    className="mb-3 flex items-center justify-between rounded-[24px] border border-border/50 bg-[linear-gradient(135deg,_hsl(var(--card)/0.96),_hsl(var(--background)/0.86))] p-3 shadow-[0_22px_50px_-28px_hsl(var(--foreground)/0.45)] backdrop-blur-xl"
                                 >
                                     <div className="flex min-w-0 flex-col">
-                                        <span className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-widest mb-1">Replying to message</span>
+                                        <span className="mb-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground/80">Replying to message</span>
                                         <span className="max-w-[calc(100vw-8rem)] truncate text-sm text-foreground/90 sm:max-w-md">"{replyingTo.content}"</span>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-accent" onClick={() => setReplyingTo(null)}>
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full border border-border/50 bg-card/70 hover:bg-accent" onClick={() => setReplyingTo(null)}>
                                         <X className="h-4 w-4 text-muted-foreground" />
                                     </Button>
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
-                        <div className="flex items-end gap-1.5 rounded-2xl border border-border/60 bg-card/90 p-1.5 shadow-2xl backdrop-blur-md md:gap-3">
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                className="hidden"
-                                onChange={handleFileSelect}
-                            />
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="mb-0.5 h-10 w-10 shrink-0 rounded-xl text-muted-foreground/60 transition-all hover:bg-accent hover:text-foreground md:h-11 md:w-11"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isUploading}
-                            >
-                                {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-6 w-6" />}
-                            </Button>
+                        <div className="relative overflow-hidden rounded-[30px] border border-white/55 bg-[linear-gradient(135deg,_hsl(var(--card)/0.98),_hsl(var(--background)/0.92))] p-[1px] shadow-[0_28px_70px_-32px_hsl(var(--foreground)/0.45)] backdrop-blur-2xl">
+                            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
+                            <div className="relative flex items-end gap-2 rounded-[29px] border border-border/45 bg-[linear-gradient(180deg,_hsl(var(--card)/0.78),_hsl(var(--background)/0.92))] p-2 sm:gap-3 sm:p-2.5">
+                                <div className="pointer-events-none absolute -left-4 bottom-2 h-20 w-20 rounded-full bg-secondary/12 blur-3xl" />
+                                <div className="pointer-events-none absolute -right-4 top-1 h-16 w-16 rounded-full bg-primary/10 blur-3xl" />
 
-                            <textarea
-                                value={newMessage}
-                                onChange={(e) => {
-                                    handleTyping(e);
-                                }}
-                                onKeyDown={(e) => {
-                                    const chatBehavior = useChatStore.getState().chatBehavior;
-                                    if (e.key === 'Enter' && !e.shiftKey && chatBehavior.enterToSend) {
-                                        e.preventDefault();
-                                        void sendMessage();
-                                    }
-                                }}
-                                placeholder="Type a message..."
-                                className="min-h-[48px] max-h-32 flex-1 resize-none border-none bg-transparent px-2 py-3 text-sm font-medium text-foreground/90 placeholder:text-muted-foreground/60 focus:ring-0 md:min-h-[52px] md:py-3.5 md:text-[15px]"
-                                rows={1}
-                                onInput={(e) => {
-                                    const target = e.target as HTMLTextAreaElement;
-                                    target.style.height = '14px';
-                                    target.style.height = `${target.scrollHeight}px`;
-                                }}
-                            />
-
-                            <div className="mb-0.5 flex shrink-0 items-center gap-1 pr-0.5 sm:pr-1">
-                                <div className="hidden md:flex items-center gap-1 mr-2 opacity-60">
-                                    {/* Input Feature Previews (Voice + GIF) */}
-                                    <Button type="button" variant="ghost" size="icon" className="h-11 w-11 hover:text-foreground hover:bg-accent rounded-xl transition-all" onClick={openGifSearch}>
-                                        <span className="font-bold text-[12px] uppercase text-muted-foreground tracking-widest leading-none">GIF</span>
-                                    </Button>
-                                </div>
-
-                                <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
-                                    <PopoverTrigger asChild>
-                                        <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground/60 hover:text-foreground hover:bg-accent rounded-xl transition-all">
-                                            <Smile className="h-[22px] w-[22px]" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent side="top" align="end" className="p-0 border-none bg-transparent shadow-none w-auto mb-4">
-                                        <EmojiPicker
-                                            onEmojiClick={onEmojiClick}
-                                            previewConfig={{ showPreview: false }}
-                                            width={280}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    onChange={handleFileSelect}
+                                />
                                 <Button
                                     type="button"
-                                    onClick={handleSendMessage}
-                                    disabled={!newMessage.trim() || isSending}
                                     variant="ghost"
-                                    className={cn(
-                                        "h-11 w-11 rounded-xl transition-all px-0 flex items-center justify-center",
-                                        newMessage.trim()
-                                            ? "text-foreground hover:text-foreground hover:bg-primary/10"
-                                            : "text-muted-foreground/40 hover:bg-transparent cursor-default"
-                                    )}
+                                    size="icon"
+                                    className="relative mb-0.5 h-11 w-11 shrink-0 rounded-2xl border border-border/50 bg-card/85 text-muted-foreground/70 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-accent hover:text-foreground md:h-12 md:w-12"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading}
                                 >
-                                    {isSending ? <Loader2 className="h-[20px] w-[20px] animate-spin" /> : <Send className="h-[20px] w-[20px]" />}
+                                    {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
                                 </Button>
+
+                                <div className="relative flex min-w-0 flex-1 items-end gap-2 rounded-[24px] border border-border/50 bg-background/80 px-3 shadow-[inset_0_1px_0_hsl(var(--card)/0.72)] transition-all duration-200 focus-within:border-primary/35 focus-within:ring-4 focus-within:ring-primary/10 sm:px-4">
+                                    <textarea
+                                        ref={textareaRef}
+                                        value={newMessage}
+                                        onChange={(e) => {
+                                            handleTyping(e);
+                                            resizeComposer(e.target);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            const chatBehavior = useChatStore.getState().chatBehavior;
+                                            if (e.key === 'Enter' && !e.shiftKey && chatBehavior.enterToSend) {
+                                                e.preventDefault();
+                                                void sendMessage();
+                                            }
+                                        }}
+                                        placeholder="Write a message..."
+                                        className="min-h-[54px] max-h-32 flex-1 resize-none border-none bg-transparent px-0 py-3 text-[15px] font-medium leading-6 text-foreground/90 placeholder:text-muted-foreground/55 focus:ring-0 md:min-h-[58px] md:text-base"
+                                        rows={1}
+                                        onInput={(e) => resizeComposer(e.currentTarget)}
+                                    />
+
+                                    <div className="hidden pb-3 pr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/55 lg:block">
+                                        Enter to send
+                                    </div>
+                                </div>
+
+                                <div className="mb-0.5 flex shrink-0 items-center gap-1 rounded-[22px] border border-border/50 bg-card/80 p-1 shadow-sm">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="hidden h-10 min-w-[52px] rounded-2xl px-3 text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted-foreground/75 transition-all hover:bg-accent hover:text-foreground md:inline-flex"
+                                        onClick={openGifSearch}
+                                    >
+                                        GIF
+                                    </Button>
+
+                                    <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+                                        <PopoverTrigger asChild>
+                                            <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-2xl text-muted-foreground/65 transition-all hover:bg-accent hover:text-foreground">
+                                                <Smile className="h-5 w-5" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="top" align="end" className="mb-4 w-auto border-none bg-transparent p-0 shadow-none">
+                                            <EmojiPicker
+                                                onEmojiClick={onEmojiClick}
+                                                previewConfig={{ showPreview: false }}
+                                                width={280}
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <Button
+                                        type="button"
+                                        onClick={handleSendMessage}
+                                        disabled={!newMessage.trim() || isSending}
+                                        className={cn(
+                                            "h-10 w-10 rounded-2xl px-0 transition-all duration-200",
+                                            newMessage.trim()
+                                                ? "bg-primary text-primary-foreground shadow-[0_14px_30px_-16px_hsl(var(--primary)/0.9)] hover:-translate-y-0.5 hover:bg-primary/90"
+                                                : "bg-transparent text-muted-foreground/40 shadow-none hover:bg-transparent"
+                                        )}
+                                    >
+                                        {isSending ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Send className="h-[18px] w-[18px]" />}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
 
