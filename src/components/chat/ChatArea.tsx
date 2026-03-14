@@ -518,7 +518,7 @@ export function ChatArea({ currentUserId, activeChatId }: ChatAreaProps) {
                                             }
                                         }}
                                         placeholder="Write a message..."
-                                        className="min-h-[54px] max-h-32 flex-1 resize-none border-none bg-transparent px-0 py-3 text-[15px] font-medium leading-6 text-foreground/90 placeholder:text-muted-foreground/55 focus:ring-0 md:min-h-[58px] md:text-base"
+                                        className="min-h-[54px] max-h-32 flex-1 resize-none border-none bg-transparent px-0 py-3 text-[15px] font-medium leading-6 text-foreground/90 placeholder:text-muted-foreground/55 outline-none focus:outline-none focus:ring-0 md:min-h-[58px] md:text-base"
                                         rows={1}
                                         onInput={(e) => resizeComposer(e.currentTarget)}
                                     />
